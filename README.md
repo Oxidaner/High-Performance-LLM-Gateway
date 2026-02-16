@@ -2,6 +2,61 @@
 
 Enterprise-grade API gateway for managing LLM (Large Language Model) requests with multi-provider support, intelligent caching, and rate limiting.
 
+## Architecture
+
+```mermaid
+flowchart TB
+    subgraph Client["Client"]
+        Req[User Request]
+    end
+
+    subgraph Gateway["Go Gateway :8080"]
+        Auth[API Key Auth]
+        Rate[Rate Limit]
+        Cache[Cache Router]
+        Router[LLM Router]
+    end
+
+    subgraph Redis["Redis Stack"]
+        L1[L1 Exact Cache<br/>SHA256 Hash]
+        L2[L2 Semantic Cache<br/>Vector Similarity]
+    end
+
+    subgraph Worker["Python Worker :8081"]
+        Embed[Embedding<br/>sentence-transformers]
+    end
+
+    subgraph DB["PostgreSQL"]
+        Keys[API Keys<br/>Persistence]
+    end
+
+    subgraph LLM["LLM Providers"]
+        OpenAI[OpenAI<br/>GPT-4/3.5]
+        Claude[Anthropic<br/>Claude]
+        MiniMax[MiniMax]
+    end
+
+    Req --> Auth
+    Auth -.->|Verify Key| Keys
+    Auth --> Rate
+    Rate --> Cache
+    Cache -->|L1 Hit| L1
+    L1 -->|Return| Req
+    Cache -->|L1 Miss| L2
+    L2 -->|L2 Hit| Embed
+    Embed -->|Return Vector| L2
+    L2 -->|L2 Miss| Router
+    Router --> OpenAI
+    Router --> Claude
+    Router --> MiniMax
+
+    style Gateway fill:#e3f2fd,stroke:#1976d2
+    style Redis fill:#e8f5e9,stroke:#388e3c
+    style Worker fill:#fff3e0,stroke:#f57c00
+    style LLM fill:#fce4ec,stroke:#c2185b
+    style DB fill:#f5f5f5,stroke:#666666
+```
+
 ## Features
 
 - **Multi-Provider Support**: OpenAI, Anthropic (Claude), MiniMax
@@ -12,54 +67,6 @@ Enterprise-grade API gateway for managing LLM (Large Language Model) requests wi
 - **High Performance**: 10,000+ QPS throughput
 - **Authentication**: API Key based auth with Redis caching
 - **Admin API**: Key management and usage statistics
-
-## Architecture
-
-```mermaid
-flowchart TB
-    subgraph Client["Client"]
-        A[User Request]
-    end
-
-    subgraph Gateway["Go Gateway :8080"]
-        B[API Auth]
-        C[Rate Limit]
-        D[Cache Check]
-        E[Router]
-    end
-
-    subgraph Cache["Redis Stack"]
-        F[L1 Exact Cache]
-        G[L2 Semantic Cache]
-    end
-
-    subgraph Worker["Python Worker :8081"]
-        H[Embedding]
-    end
-
-    subgraph LLM["LLM Providers"]
-        I[OpenAI]
-        J[Claude]
-        K[MiniMax]
-    end
-
-    A --> B
-    B --> C
-    C --> D
-    D -->|L1 Hit| A
-    D -->|L1 Miss| H
-    H --> G
-    G -->|L2 Hit| A
-    G -->|L2 Miss| E
-    E --> I
-    E --> J
-    E --> K
-
-    style Gateway fill:#e3f2fd,stroke:#1976d2
-    style Cache fill:#e8f5e9,stroke:#388e3c
-    style Worker fill:#fff3e0,stroke:#f57c00
-    style LLM fill:#fce4ec,stroke:#c2185b
-```
 
 ## Quick Start
 
@@ -105,8 +112,6 @@ providers:
     base_url: https://api.openai.com/v1
   anthropic:
     api_key: your-anthropic-key
-
-# ... more config options
 ```
 
 ## API Endpoints
@@ -169,10 +174,11 @@ llm-gateway/
 ├── internal/
 │   ├── config/          # Configuration loading
 │   ├── handler/         # HTTP handlers
-│   ├── logger/          # Zap logger
-│   ├── middleware/      # Auth, rate limiting
+│   ├── logger/           # Zap logger
+│   ├── middleware/       # Auth, rate limiting
 │   └── storage/         # Redis, PostgreSQL clients
-├── configs/             # Configuration files
+├── configs/              # Configuration files
+├── docs/                 # Documentation
 └── go.mod
 ```
 

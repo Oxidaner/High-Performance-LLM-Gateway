@@ -2,6 +2,61 @@
 
 高性能 LLM 网关 - 企业级大模型流量管理方案，支持多提供商、智能缓存和限流。
 
+## 架构图
+
+```mermaid
+flowchart TB
+    subgraph Client["客户端"]
+        Req[用户请求]
+    end
+
+    subgraph Gateway["Go Gateway :8080"]
+        Auth[API Key 认证]
+        Rate[限流检查]
+        Cache[缓存路由]
+        Router[LLM 路由]
+    end
+
+    subgraph Redis["Redis Stack"]
+        L1[L1 精确缓存<br/>SHA256 Hash]
+        L2[L2 语义缓存<br/>向量相似度]
+    end
+
+    subgraph Worker["Python Worker :8081"]
+        Embed[Embedding<br/>sentence-transformers]
+    end
+
+    subgraph DB["PostgreSQL"]
+        Keys[API Keys<br/>持久化]
+    end
+
+    subgraph LLM["LLM 提供商"]
+        OpenAI[OpenAI<br/>GPT-4/3.5]
+        Claude[Anthropic<br/>Claude]
+        MiniMax[MiniMax]
+    end
+
+    Req --> Auth
+    Auth -.->|验证 Key| Keys
+    Auth --> Rate
+    Rate --> Cache
+    Cache -->|L1 命中| L1
+    L1 -->|返回| Req
+    Cache -->|L1 未命中| L2
+    L2 -->|L2 命中| Embed
+    Embed -->|返回向量| L2
+    L2 -->|L2 未命中| Router
+    Router --> OpenAI
+    Router --> Claude
+    Router --> MiniMax
+
+    style Gateway fill:#e3f2fd,stroke:#1976d2
+    style Redis fill:#e8f5e9,stroke:#388e3c
+    style Worker fill:#fff3e0,stroke:#f57c00
+    style LLM fill:#fce4ec,stroke:#c2185b
+    style DB fill:#f5f5f5,stroke:#666666
+```
+
 ## 特性
 
 - **多模型支持**: OpenAI, Anthropic (Claude), MiniMax
@@ -12,54 +67,6 @@
 - **高性能**: 10,000+ QPS 吞吐量
 - **认证鉴权**: API Key 认证 + Redis 缓存
 - **管理后台**: Key 管理与使用统计
-
-## 架构图
-
-```mermaid
-flowchart TB
-    subgraph Client["客户端"]
-        A[用户请求]
-    end
-
-    subgraph Gateway["Go Gateway :8080"]
-        B[API 认证]
-        C[限流检查]
-        D[缓存查询]
-        E[路由分发]
-    end
-
-    subgraph Cache["Redis Stack"]
-        F[L1 精确缓存]
-        G[L2 语义缓存]
-    end
-
-    subgraph Worker["Python Worker :8081"]
-        H[Embedding 生成]
-    end
-
-    subgraph LLM["LLM 提供商"]
-        I[OpenAI]
-        J[Claude]
-        K[MiniMax]
-    end
-
-    A --> B
-    B --> C
-    C --> D
-    D -->|L1 Hit| A
-    D -->|L1 Miss| H
-    H --> G
-    G -->|L2 Hit| A
-    G -->|L2 Miss| E
-    E --> I
-    E --> J
-    E --> K
-
-    style Gateway fill:#e3f2fd,stroke:#1976d2
-    style Cache fill:#e8f5e9,stroke:#388e3c
-    style Worker fill:#fff3e0,stroke:#f57c00
-    style LLM fill:#fce4ec,stroke:#c2185b
-```
 
 ## 快速开始
 
@@ -115,9 +122,9 @@ providers:
 # 聊天完成
 curl -X POST http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application -d '{
-/json" \
-     "model": "gpt-4",
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4",
     "messages": [{"role": "user", "content": "你好!"}]
   }'
 
@@ -166,11 +173,12 @@ llm-gateway/
 ├── cmd/server/           # 入口文件
 ├── internal/
 │   ├── config/          # 配置加载
-│   ├── handler/        # HTTP 处理器
+│   ├── handler/         # HTTP 处理器
 │   ├── logger/         # Zap 日志
 │   ├── middleware/     # 认证、限流
 │   └── storage/        # Redis、PostgreSQL 客户端
-├── configs/            # 配置文件
+├── configs/             # 配置文件
+├── docs/                # 文档
 └── go.mod
 ```
 
