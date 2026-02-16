@@ -1,173 +1,78 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-High-Performance LLM Gateway - An enterprise-grade API gateway for managing LLM (Large Language Model) requests with multi-provider support, intelligent caching, and rate limiting.
+High-Performance LLM Gateway - Enterprise-grade API gateway for LLM requests with multi-provider support, caching, and rate limiting.
 
-## GitHub Repository
+## Current Status (2026-02-17)
 
+**Milestone**: M1 - Go HTTP 服务框架完成 ✓
+
+### 已完成
+- Go 项目初始化 (go mod init)
+- Gin 框架搭建
+- HTTP 服务 + 健康检查
+- Config 加载 (config.yaml)
+- Zap 日志集成
+- Redis 客户端 (框架)
+- PostgreSQL 客户端 (框架)
+- API Key 认证中间件 (框架)
+- Token Bucket 限流 (框架)
+- L1 缓存读写 (框架)
+- Admin API: Key CRUD
+
+### API Endpoints
+- `GET /health` - 健康检查
+- `POST /v1/chat/completions` - 聊天完成
+- `POST /v1/embeddings` - 向量嵌入
+- `GET /v1/models` - 模型列表
+- `POST /api/v1/keys` - 创建 API Key
+- `GET /api/v1/keys` - 列表 API Keys
+- `DELETE /api/v1/keys/:id` - 删除 Key
+- `GET /api/v1/stats` - 使用统计
+
+### GitHub
 https://github.com/Oxidaner/High-Performance-LLM-Gateway
-
-## Current Status (2026-02-16)
-
-**Milestone**: M1 - Go HTTP 服务能运行 ✓
-
-### Completed
-- Go project initialization (go mod init)
-- Gin framework setup
-- HTTP server with health check
-- Config loading (config.yaml)
-- Zap logger integration
-- Redis client (framework)
-- PostgreSQL client (framework)
-- API Key auth middleware (framework)
-- Token bucket rate limiter (framework)
-- L1 cache read/write (framework)
-- Admin API: Key CRUD endpoints
-
-### In Progress
-- Learning Phase 0 (Python, FastAPI, Redis Vector)
-- Connecting to actual Redis/PostgreSQL
 
 ## Architecture
 
-### Components
-- **Go Gateway** (:8080) - High-performance HTTP API gateway handling 10k+ QPS
-- **Python Worker** (:8081) - Embedding generation service using sentence-transformers
-- **Redis Stack** - L1 exact cache (SHA256 Hash) + L2 semantic cache (Vector similarity)
-- **PostgreSQL** - Persistent storage for API keys, model configs, and request logs
+```
+llm-gateway/
+├── cmd/server/main.go       # 入口
+├── internal/
+│   ├── config/             # 配置加载
+│   ├── handler/            # HTTP 处理器
+│   │   ├── chat.go
+│   │   ├── embedding.go
+│   │   └── admin.go
+│   ├── logger/            # Zap 日志
+│   ├── middleware/        # 认证、限流
+│   │   ├── auth.go
+│   │   └── ratelimit.go
+│   └── storage/           # Redis、PostgreSQL
+│       ├── redis.go
+│       └── postgres.go
+├── configs/config.yaml     # 配置文件
+└── go.mod
+```
 
-### Key Design Decisions
+## Commands
 
-1. **Layered Caching Strategy**
-   - L1 (Exact Cache): Redis Hash with SHA256(prompt+model+temperature), <1ms latency
-   - L2 (Semantic Cache): Redis Vector with similarity threshold >0.95, 10-50ms latency
-
-2. **Independent Python Worker Deployment** (NOT sidecar)
-   - Reason: Embedding is CPU-intensive, would compete with Go Gateway for resources
-
-3. **Token Calculation in Go** (using tiktoken-go)
-   - Avoids RPC calls to Python Worker for every request
-   - Non-OpenAI models use character-count estimation
-
-4. **Configuration Hot Reload**: K8s ConfigMap + fsnotify (no external config service)
-
-## Common Commands
-
-### Development
 ```bash
-# Initialize Go module
-go mod init llm-gateway
-
-# Install dependencies
-go mod tidy
-
-# Run Go server
+# 运行服务
 go run cmd/server/main.go
 
-# Run Python worker
-cd python-worker && pip install -r requirements.txt && uvicorn app.main:app --reload
+# 编译
+go build -o llm-gateway.exe ./cmd# 测试
+go/server/main.go
+
+ test ./...
 ```
 
-### Testing
-```bash
-# Run Go tests
-go test ./...
+## Important Notes
 
-# Run specific test
-go test ./internal/cache/... -v
-
-# Run Python tests (if pytest configured)
-pytest tests/
-```
-
-### Docker
-```bash
-# Build all services
-docker-compose build
-
-# Run development environment
-docker-compose up -d
-
-# Run with specific service
-docker-compose up gateway
-```
-
-### Database
-```bash
-# Initialize PostgreSQL schema
-psql -h localhost -U llm_gateway -d llm_gateway -f scripts/init_db.sql
-
-# Run migrations (if using golang-migrate)
-migrate -path migrations -database "postgres://..." up
-```
-
-### Deployment
-```bash
-# Deploy to Kubernetes
-kubectl apply -f deployments/k8s/
-
-# Check deployment status
-kubectl get pods -l app=llm-gateway
-
-# View logs
-kubectl logs -f deployment/llm-gateway
-```
-
-## Code Structure
-
-```
-llm-gateway/                    # Go Gateway
-├── cmd/server/main.go          # Entry point
-├── internal/
-│   ├── config/                 # Config loading with fsnotify
-│   ├── handler/                # HTTP handlers (chat, embedding, admin)
-│   ├── middleware/             # Auth, rate limit, logging
-│   ├── service/
-│   │   ├── cache/             # L1 + L2 cache logic
-│   │   ├── provider/           # OpenAI, Claude, MiniMax adapters
-│   │   ├── router.go          # Weighted round-robin routing
-│   │   └── circuitbreaker.go  # Failure detection & fallback
-│   ├── tokenizer/             # TikToken integration
-│   └── storage/               # Redis & PostgreSQL clients
-
-llm-worker/                     # Python Worker
-├── app/main.py                 # FastAPI entry
-├── app/routes/                 # /embeddings, /health
-└── requirements.txt
-```
-
-## API Endpoints
-
-### OpenAI-Compatible
-- `POST /v1/chat/completions` - Chat completion
-- `POST /v1/completions` - Text completion
-- `POST /v1/embeddings` - Get embeddings
-- `GET /v1/models` - List models
-
-### Admin API
-- `POST /api/v1/keys` - Create API key
-- `GET /api/v1/keys` - List keys
-- `DELETE /api/v1/keys/:id` - Delete key
-- `GET /api/v1/stats` - Usage statistics
-
-## Key Configuration Files
-
-- `config.yaml` - Main configuration (models, rate limits, cache settings)
-- `deployments/docker/docker-compose.yaml` - Local development
-- `deployments/k8s/` - Kubernetes manifests
-
-## Documentation
-
-- **SPEC.md** - Full technical specification with architecture diagrams
-- **Todo.md** - Development task tracking
-
-## Performance Targets
-
-- 10,000+ QPS throughput
-- P99 latency < 500ms
-- L1 cache hit: <1ms
-- L2 cache hit: 10-50ms
-- 80% cache hit rate (combined L1+L2)
+- Redis/PostgreSQL 连接失败时服务仍可运行（开发模式）
+- 所有配置在 configs/config.yaml
+- 日志使用 zap，支持 JSON/Console 格式

@@ -40,9 +40,9 @@ Phase 0: 基础知识学习 ← **当前**
 - K8s: https://kubernetes.io/zh-cn/docs/tutorials/
 
 ## 编码状态
-进行中 - Go框架搭建完成 (Phase 0.4)
+进行中 - M1 Go HTTP 服务框架完成 ✓
 
-## 已完成功能 (2026-02-16)
+## 已完成功能 (2026-02-17)
 - Go项目初始化 + Gin框架
 - HTTP服务骨架 + 健康检查
 - 配置文件加载 (config.yaml)
@@ -57,10 +57,14 @@ Phase 0: 基础知识学习 ← **当前**
 - PostgreSQL 客户端 (框架)
 - L1 缓存读写 (框架)
 
+## GitHub
+https://github.com/Oxidaner/High-Performance-LLM-Gateway
+
 ## 对话历史
 2026-02-15: 完成SPEC.md、Todo.md(细化版+网址)、token_log.md
 2026-02-16: 完成Go框架搭建(Task 0.4)
 2026-02-16: 完成Zap日志库(Task 0.4.4)
+2026-02-17: 更新所有docs文档(CLAUDE.md, SPEC.md, Todo.md, token_log.md)
 
 ---
-v1.4 | 2026-02-16
+v1.5 | 2026-02-17
