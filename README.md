@@ -15,27 +15,50 @@ Enterprise-grade API gateway for managing LLM (Large Language Model) requests wi
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     Kubernetes Cluster                       │
-│  ┌─────────────────────────────────────────────────────┐    │
-│  │              Go Gateway (:8080)                    │    │
-│  └────────────┬─────────────────────┬────────────────┘    │
-│               │                     │                      │
-│               ▼                     ▼                      │
-│       ┌──────────────┐    ┌──────────────────┐          │
-│       │   Redis      │    │  Python Worker   │          │
-│       │   Stack      │    │  (:8081)         │          │
-│       │  (Cache)     │    │  (Embedding)     │          │
-│       └──────────────┘    └──────────────────┘          │
-│                               │                           │
-│                               ▼                           │
-│                    ┌──────────────────┐                  │
-│                    │  LLM Providers   │                  │
-│                    │  OpenAI/Claude  │                  │
-│                    │  MiniMax         │                  │
-│                    └──────────────────┘                  │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Client["Client"]
+        A[User Request]
+    end
+
+    subgraph Gateway["Go Gateway :8080"]
+        B[API Auth]
+        C[Rate Limit]
+        D[Cache Check]
+        E[Router]
+    end
+
+    subgraph Cache["Redis Stack"]
+        F[L1 Exact Cache]
+        G[L2 Semantic Cache]
+    end
+
+    subgraph Worker["Python Worker :8081"]
+        H[Embedding]
+    end
+
+    subgraph LLM["LLM Providers"]
+        I[OpenAI]
+        J[Claude]
+        K[MiniMax]
+    end
+
+    A --> B
+    B --> C
+    C --> D
+    D -->|L1 Hit| A
+    D -->|L1 Miss| H
+    H --> G
+    G -->|L2 Hit| A
+    G -->|L2 Miss| E
+    E --> I
+    E --> J
+    E --> K
+
+    style Gateway fill:#e3f2fd,stroke:#1976d2
+    style Cache fill:#e8f5e9,stroke:#388e3c
+    style Worker fill:#fff3e0,stroke:#f57c00
+    style LLM fill:#fce4ec,stroke:#c2185b
 ```
 
 ## Quick Start
@@ -145,11 +168,11 @@ llm-gateway/
 ├── cmd/server/           # Entry point
 ├── internal/
 │   ├── config/          # Configuration loading
-│   ├── handler/        # HTTP handlers
-│   ├── logger/         # Zap logger
-│   ├── middleware/     # Auth, rate limiting
-│   └── storage/       # Redis, PostgreSQL clients
-├── configs/            # Configuration files
+│   ├── handler/         # HTTP handlers
+│   ├── logger/          # Zap logger
+│   ├── middleware/      # Auth, rate limiting
+│   └── storage/         # Redis, PostgreSQL clients
+├── configs/             # Configuration files
 └── go.mod
 ```
 
