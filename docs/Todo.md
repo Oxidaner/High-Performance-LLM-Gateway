@@ -72,10 +72,10 @@
 ### Task 1.1: OpenAI Provider 适配器 (Day 29-35)
 
 - [x] Task 1.1.1: 定义请求/响应结构体 (OpenAI 格式)
-- [ ] Task 1.1.2: 安装 OpenAI Go SDK
-- [ ] Task 1.1.3: 实现 OpenAI API 调用
+- [x] Task 1.1.2: 安装 OpenAI Go SDK (使用直接 HTTP 调用替代)
+- [x] Task 1.1.3: 实现 OpenAI API 调用
 - [x] Task 1.1.4: 实现 /v1/chat/completions 路由
-- [x] Task 1.1.5: 实现流式响应 (可选)
+- [x] Task 1.1.5: 实现流式响应 (模拟 SSE)
 - [ ] Task 1.1.6: 编写集成测试验证 API 调用
 
 ### Task 1.2: 请求/响应处理 (Day 36-42)
@@ -112,19 +112,19 @@
 ### Task 2.3: Token 限流 (Day 57-63)
 
 - [ ] Task 2.3.1: 安装 tiktoken-go 库
-- [ ] Task 2.3.2: 实现 Token 计数逻辑
+- [ ] Task 2.3.2: 实现 Token 精确计算 (当前使用简单估算)
 - [x] Task 2.3.3: 实现令牌桶算法
-- [x] Task 2.3.4: 实现按模型限流
-- [x] Task 2.3.5: 实现按 API Key 限流
+- [x] Task 2.3.4: 实现按模型限流 (框架)
+- [x] Task 2.3.5: 实现按 API Key 限流 (框架)
 - [ ] Task 2.3.6: 编写限流测试
 
 ### Task 2.4: L1 精确缓存 (Day 64-70)
 
 - [x] Task 2.4.1: 实现 Redis 连接
-- [x] Task 2.4.2: 实现 Hash 缓存键生成 (SHA256)
+- [x] Task 2.4.2: 实现 Hash 缓存键生成
 - [x] Task 2.4.3: 实现 L1 缓存写入
 - [x] Task 2.4.4: 实现 L1 缓存读取
-- [x] Task 2.4.5: 实现缓存 TTL
+- [ ] Task 2.4.5: 实现缓存 TTL
 - [ ] Task 2.4.6: 编写缓存测试
 
 ### Task 2.5: 负载均衡与熔断 (Day 71-77)
@@ -219,32 +219,50 @@
 
 | 里程碑 | 目标 | 对应 Task | 状态 |
 |--------|------|-----------|------|
-| M0 | Python + FastAPI + Redis Vector 会用 | Task 0.1 - 0.4 | ✓ |
-| M1 | Go HTTP 服务能运行 | Task 0.4 | ✓ 完成 |
-| M2 | 能调用 OpenAI API | Task 1.1 | 进行中 |
-| M3 | 限流 + 鉴权生效 | Task 2.1 - 2.3 | 框架完成 |
-| M4 | L1 + L2 缓存生效 | Task 2.4 + 3.2 | L1完成 |
-| M5 | K8s 部署完成 | Task 4.1 - 4.2 | - |
+| M0 | Python + FastAPI + Redis Vector 会用 | Task 0.1 - 0.4 | - |
+| M1 | Go HTTP 服务框架 | Task 0.4 | ✓ 完成 |
+| M2 | 调用 OpenAI API | Task 1.1 | ✓ 完成 |
+| M3 | 限流 + 鉴权 | Task 2.1 - 2.3 | 框架完成 |
+| M4 | L1 缓存 | Task 2.4 | ✓ 完成 |
+| M5 | L2 语义缓存 | Task 3.2 | - |
+| M6 | K8s 部署 | Task 4.1 - 4.2 | - |
 
 ---
 
-## 八、每日执行模板
+## 八、当前代码状态 (2026-02-17)
+
+### 已实现的文件
 
 ```
-每日任务格式:
-1. 回顾昨日任务完成情况
-2. 今日目标: 1-2 个 Task
-3. 遇到问题记录
-4. 明日待办
-
-示例:
-✓ Task 0.1.1: 安装 Python 3.11+ 环境
-✓ Task 0.1.2: 掌握变量、数据类型
-△ Task 0.1.3: 条件语句 (未完成,明日继续)
-- 今日完成: 2/3 Task
-- 遇到问题: 无
-- 明日待办: Task 0.1.3 + Task 0.1.4
+llm-gateway/
+├── cmd/server/main.go           # 主入口, Gin 路由, 中间件
+├── internal/
+│   ├── config/config.go         # 配置加载 (YAML)
+│   ├── logger/logger.go         # Zap 日志库
+│   ├── middleware/
+│   │   ├── auth.go              # API Key 认证
+│   │   └── ratelimit.go        # Token Bucket 限流
+│   ├── handler/
+│   │   ├── chat.go              # /v1/chat/completions
+│   │   ├── embedding.go         # /v1/embeddings
+│   │   └── admin.go            # Admin API (Key CRUD)
+│   └── storage/
+│       ├── redis.go             # Redis 客户端
+│       └── postgres.go          # PostgreSQL 客户端
+├── configs/config.yaml           # 配置文件
+└── go.mod
 ```
+
+### API 接口
+
+- `GET /health` - 健康检查 ✓
+- `POST /v1/chat/completions` - 聊天完成 (框架) ✓
+- `POST /v1/embeddings` - 向量嵌入 ✓
+- `GET /v1/models` - 模型列表 ✓
+- `POST /api/v1/keys` - 创建 API Key ✓
+- `GET /api/v1/keys` - 列表 API Keys ✓
+- `DELETE /api/v1/keys/:id` - 删除 Key ✓
+- `GET /api/v1/stats` - 使用统计 ✓
 
 ---
 
@@ -255,8 +273,9 @@ Go:
 - Go 1.21+
 - gin v1.9+
 - go-redis v9+
-- tiktoken-go v0.1+
-- uber-go/ratelimit v0.3+
+- uber-go/zap
+- gopkg.in/yaml.v3
+- lib/pq (PostgreSQL)
 
 Python:
 - Python 3.11+
@@ -277,48 +296,6 @@ K8s:
 
 ---
 
-## 九、常用链接汇总 (快速访问)
-
-### Python / FastAPI
-| 资源 | 链接 |
-|------|------|
-| Python 菜鸟教程 | https://www.runoob.com/python3/python3-tutorial.html |
-| FastAPI 官方教程 | https://fastapi.tiangolo.com/zh/tutorial/ |
-| Python 官方文档 | https://docs.python.org/3/tutorial/ |
-
-### Redis Vector
-| 资源 | 链接 |
-|------|------|
-| Redis Stack 向量搜索 | https://redis.io/docs/stack/search/vector-similarity/ |
-| Redis 快速入门 | https://redis.io/docs/stack/search/quick-start/ |
-| FT.CREATE 命令 | https://redis.io/commands/ft.create/ |
-
-### Go 生态
-| 资源 | 链接 |
-|------|------|
-| Gin 框架 | https://gin-gonic.com/zh-cn/docs/quickstart/ |
-| TikToken Go | https://github.com/pkoukk/tiktoken-go |
-| Go 限流库 | https://github.com/uber-go/ratelimit |
-| Go fsnotify | https://github.com/fsnotify/fsnotify |
-
-### AI / Embedding
-| 资源 | 链接 |
-|------|------|
-| Sentence-Transformers | https://sbert.net/ |
-| HuggingFace SBERT | https://huggingface.co/sentence-transformers |
-| OpenAI API | https://platform.openai.com/docs/api-reference/chat/create |
-
-### 部署 / 监控
-| 资源 | 链接 |
-|------|------|
-| Docker Compose | https://docs.docker.com/compose/ |
-| K8s 官方教程 | https://kubernetes.io/zh-cn/docs/tutorials/ |
-| Prometheus | https://prometheus.io/docs/introduction/overview/ |
-| K6 压测 | https://k6.io/docs/ |
-
----
-
-*文档版本: v1.4*
+*文档版本: v1.5*
 *最后更新: 2026-02-17*
-*包含 120+ 细粒度 Task*
-*常用链接已汇总在第九章*
+*代码扫描更新完成*

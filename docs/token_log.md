@@ -40,22 +40,31 @@ Phase 0: 基础知识学习 ← **当前**
 - K8s: https://kubernetes.io/zh-cn/docs/tutorials/
 
 ## 编码状态
-进行中 - M1 Go HTTP 服务框架完成 ✓
+进行中 - M2 OpenAI API 调用完成 ✓
 
-## 已完成功能 (2026-02-17)
+## 当前代码状态 (2026-02-17)
+
+### 已实现
 - Go项目初始化 + Gin框架
 - HTTP服务骨架 + 健康检查
 - 配置文件加载 (config.yaml)
 - Zap日志库配置
-- /v1/chat/completions 接口 (框架)
-- /v1/embeddings 接口 (框架)
+- /v1/chat/completions 接口 (直接HTTP调用)
+- /v1/embeddings 接口 (转发Python Worker)
 - /v1/models 接口
 - Admin API: Key CRUD
 - API Key 认证中间件 (框架)
 - Token Bucket 限流 (框架)
-- Redis 客户端 (框架)
-- PostgreSQL 客户端 (框架)
-- L1 缓存读写 (框架)
+- Redis 客户端
+- PostgreSQL 客户端
+- L1 缓存读写
+
+### 未实现
+- Python Worker 服务
+- L2 语义缓存
+- TikToken 精确计算
+- 多模型负载均衡/熔断
+- K8s 部署配置
 
 ## GitHub
 https://github.com/Oxidaner/High-Performance-LLM-Gateway
@@ -65,6 +74,7 @@ https://github.com/Oxidaner/High-Performance-LLM-Gateway
 2026-02-16: 完成Go框架搭建(Task 0.4)
 2026-02-16: 完成Zap日志库(Task 0.4.4)
 2026-02-17: 更新所有docs文档(CLAUDE.md, SPEC.md, Todo.md, token_log.md)
+2026-02-17: 代码扫描更新Todo状态
 
 ---
-v1.5 | 2026-02-17
+v1.6 | 2026-02-17

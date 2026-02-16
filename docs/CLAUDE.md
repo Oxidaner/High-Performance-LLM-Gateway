@@ -8,7 +8,7 @@ High-Performance LLM Gateway - Enterprise-grade API gateway for LLM requests wit
 
 ## Current Status (2026-02-17)
 
-**Milestone**: M1 - Go HTTP 服务框架完成 ✓
+**Milestone**: M2 - OpenAI API 调用完成 ✓
 
 ### 已完成
 - Go 项目初始化 (go mod init)
@@ -16,12 +16,21 @@ High-Performance LLM Gateway - Enterprise-grade API gateway for LLM requests wit
 - HTTP 服务 + 健康检查
 - Config 加载 (config.yaml)
 - Zap 日志集成
-- Redis 客户端 (框架)
-- PostgreSQL 客户端 (框架)
-- API Key 认证中间件 (框架)
-- Token Bucket 限流 (框架)
-- L1 缓存读写 (框架)
+- Redis 客户端
+- PostgreSQL 客户端
+- API Key 认证中间件
+- Token Bucket 限流
+- L1 缓存读写
 - Admin API: Key CRUD
+- /v1/chat/completions 转发 OpenAI
+- /v1/embeddings 转发 Python Worker
+
+### 未完成
+- Python Worker 服务
+- L2 语义缓存
+- TikToken 精确计算
+- 多模型负载均衡/熔断
+- K8s 部署配置
 
 ### API Endpoints
 - `GET /health` - 健康检查
