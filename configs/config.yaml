@@ -1,0 +1,86 @@
+server:
+  host: 0.0.0.0
+  port: 8080
+  mode: debug
+
+# Logger (zap)
+logger:
+  level: info
+  format: console
+  output_path: stdout
+
+# PostgreSQL (persistent storage)
+database:
+  host: localhost
+  port: 5432
+  user: llm_gateway
+  password: ${DB_PASSWORD}
+  name: llm_gateway
+
+# Redis (cache + vector)
+redis:
+  address: localhost:6379
+  password: ""
+  db: 0
+
+# Python Worker (embedding service)
+python_worker:
+  address: localhost:8081
+  timeout: 5s
+
+providers:
+  openai:
+    api_key: ${OPENAI_API_KEY}
+    base_url: https://api.openai.com/v1
+  anthropic:
+    api_key: ${ANTHROPIC_API_KEY}
+  minimax:
+    api_key: ${MINIMAX_API_KEY}
+    base_url: https://api.minimax.chat/v1
+
+cache:
+  enabled: true
+  similarity_threshold: 0.95
+  ttl: 604800
+  l1_ttl: 3600
+  max_cache_size: 100000
+
+ratelimit:
+  global_qps: 10000
+  burst: 500
+  max_tokens: 128000
+  model_limits:
+    gpt-4: 1000
+    gpt-3.5-turbo: 3000
+    claude-3-haiku: 2000
+
+models:
+  - name: gpt-4
+    provider: openai
+    weight: 5
+    fallback: gpt-3.5-turbo
+    max_context: 8192
+    tokenizer: tiktoken
+    is_active: true
+
+  - name: gpt-3.5-turbo
+    provider: openai
+    weight: 3
+    max_context: 16385
+    tokenizer: tiktoken
+    is_active: true
+
+  - name: claude-3-haiku
+    provider: anthropic
+    weight: 2
+    max_context: 200000
+    tokenizer: anthropic
+    is_active: true
+
+monitoring:
+  prometheus:
+    enabled: true
+    port: 9090
+  jaeger:
+    enabled: false
+    endpoint: http://jaeger:14268/api/traces
