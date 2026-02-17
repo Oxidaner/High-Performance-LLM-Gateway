@@ -4,16 +4,19 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/redis/go-redis/v9"
 	"llm-gateway/internal/config"
+
+	"github.com/redis/go-redis/v9"
 )
 
 // RedisClient wraps the Redis connection
+// RedisClient 包装 Redis 连接
 type RedisClient struct {
 	client *redis.Client
 }
 
 // NewRedis creates a new Redis client
+// 创建一个新的Redis客户端
 func NewRedis(cfg config.RedisConfig) (*RedisClient, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     cfg.Address,
@@ -22,6 +25,7 @@ func NewRedis(cfg config.RedisConfig) (*RedisClient, error) {
 	})
 
 	ctx := context.Background()
+	
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}

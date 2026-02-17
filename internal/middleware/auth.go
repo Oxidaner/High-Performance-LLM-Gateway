@@ -1,34 +1,31 @@
 package middleware
 
 import (
-	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"net/http"
-	"strings"
+	"context"       //上下文管理
+	"crypto/sha256" //哈希算法
+	"encoding/hex"  //编码/解码十六进制字符串`
+	"net/http"      //HTTP 协议常量和函数
+	"strings"       //字符串操作
 
-	"github.com/gin-gonic/gin"
-	"llm-gateway/internal/storage"
+	"llm-gateway/internal/storage" // Storage layer
+	"llm-gateway/pkg/errors"
+
+	"github.com/gin-gonic/gin" // Web framework
 )
 
-// APIKeyAuth validates API keys
+// APIKeyAuth validates API keys and stores key info in context 用于验证 API 密钥的中间件
 func APIKeyAuth(redisClient *storage.RedisClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Skip auth if Redis is not available (dev mode)
+		// 如果 Redis 客户端为 nil（开发模式），则跳过认证，继续处理请求
 		if redisClient == nil {
 			c.Next()
 			return
 		}
-
+		// 检查请求头中是否有 Authorization 头，如果没有则返回 401 错误
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"message": "Missing authorization header",
-					"type":   "invalid_request_error",
-					"code":   "missing_authorization",
-				},
-			})
+			errors.InvalidRequest("Missing authorization header").JSON(c)
 			c.Abort()
 			return
 		}
@@ -36,13 +33,7 @@ func APIKeyAuth(redisClient *storage.RedisClient) gin.HandlerFunc {
 		// Extract Bearer token
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"message": "Invalid authorization header format",
-					"type":   "invalid_request_error",
-					"code":   "invalid_authorization",
-				},
-			})
+			errors.InvalidRequest("Invalid authorization header format").JSON(c)
 			c.Abort()
 			return
 		}
@@ -53,24 +44,13 @@ func APIKeyAuth(redisClient *storage.RedisClient) gin.HandlerFunc {
 		keyHash := hashAPIKey(apiKey)
 		keyInfo, err := checkAPIKey(c.Request.Context(), redisClient, keyHash)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": gin.H{
-					"message": "Internal server error",
-					"type":   "server_error",
-				},
-			})
+			errors.InternalError("Internal server error").JSON(c)
 			c.Abort()
 			return
 		}
 
 		if keyInfo == nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"message": "Invalid API key",
-					"type":   "invalid_api_key",
-					"code":   "invalid_api_key",
-				},
-			})
+			errors.InvalidAPIKey("Invalid API key").JSON(c)
 			c.Abort()
 			return
 		}

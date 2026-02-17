@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"llm-gateway/internal/config"
+	"llm-gateway/pkg/errors"
 )
 
 // EmbeddingHandler handles embedding requests
@@ -15,12 +16,7 @@ func EmbeddingHandler(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req EmbeddingRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": gin.H{
-					"message": err.Error(),
-					"type":   "invalid_request_error",
-				},
-			})
+			errors.InvalidRequest(err.Error()).JSON(c)
 			return
 		}
 
@@ -31,12 +27,7 @@ func EmbeddingHandler(cfg *config.Config) gin.HandlerFunc {
 		// Forward to Python Worker for embedding
 		resp, err := generateEmbedding(c, cfg, req)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": gin.H{
-					"message": err.Error(),
-					"type":   "server_error",
-				},
-			})
+			errors.InternalError(err.Error()).JSON(c)
 			return
 		}
 
@@ -47,7 +38,7 @@ func EmbeddingHandler(cfg *config.Config) gin.HandlerFunc {
 // EmbeddingRequest represents an embedding request
 type EmbeddingRequest struct {
 	Input interface{} `json:"input"` // string or []string
-	Model string    `json:"model"`
+	Model string      `json:"model"`
 }
 
 // EmbeddingResponse represents an embedding response

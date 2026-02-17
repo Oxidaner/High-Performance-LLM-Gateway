@@ -11,7 +11,6 @@ import (
 
 	"llm-gateway/internal/config"
 	"llm-gateway/internal/handler"
-	"llm-gateway/internal/logger"
 	"llm-gateway/internal/middleware"
 	"llm-gateway/internal/storage"
 
@@ -27,29 +26,37 @@ func main() {
 	}
 
 	// Initialize logger (zap)
-	if err := logger.Init(logger.Config{
+	if err := middleware.Init(middleware.Config{
 		Level:      cfg.Logger.Level,
 		Format:     cfg.Logger.Format,
 		OutputPath: cfg.Logger.OutputPath,
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
-		os.Exit(1)
+		os.Exit(1) //退出程序
 	}
-	defer logger.Sync()
+	defer middleware.Sync() // 确保在程序退出时刷新日志
 
-	logger.Info("Starting LLM Gateway",
-		logger.String("mode", cfg.Server.Mode),
-		logger.String("addr", fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)),
+	middleware.Info("Starting LLM Gateway",
+		middleware.String("mode", cfg.Server.Mode),
+		middleware.String("addr", fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)),
 	)
 
-	// Initialize storage clients (optional - continue if failed in dev mode)
+	// Initialize storage clients
+	// 初始化存储客户端 - debug模式下允许连接失败后继续运行
 	var redisClient *storage.RedisClient
 	redisClient, err = storage.NewRedis(cfg.Redis)
 	if err != nil {
-		logger.Warn("Failed to connect to Redis, continuing without Redis",
-			logger.Err(err),
-		)
-		redisClient = nil
+		if cfg.Server.Mode == "debug" {
+			middleware.Warn("Failed to connect to Redis, continuing without Redis",
+				middleware.Err(err),
+			)
+			redisClient = nil
+		} else {
+			middleware.Fatal("Failed to connect to Redis in release mode, exiting",
+				middleware.Err(err),
+			)
+			os.Exit(1) // 退出程序
+		}
 	} else {
 		defer redisClient.Close()
 	}
@@ -57,10 +64,17 @@ func main() {
 	var postgresClient *storage.PostgresClient
 	postgresClient, err = storage.NewPostgres(cfg.Database)
 	if err != nil {
-		logger.Warn("Failed to connect to PostgreSQL, continuing without DB",
-			logger.Err(err),
-		)
-		postgresClient = nil
+		if cfg.Server.Mode == "debug" {
+			middleware.Warn("Failed to connect to PostgreSQL, continuing without DB",
+				middleware.Err(err),
+			)
+			postgresClient = nil
+		} else {
+			middleware.Fatal("Failed to connect to PostgreSQL in release mode, exiting",
+				middleware.Err(err),
+			)
+			os.Exit(1)
+		}
 	} else {
 		defer postgresClient.Close()
 	}
@@ -123,9 +137,9 @@ func main() {
 
 	// Graceful shutdown
 	go func() {
-		logger.Info("Server listening", logger.String("addr", addr))
+		middleware.Info("Server listening", middleware.String("addr", addr))
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Fatal("Server failed to start", logger.Err(err))
+			middleware.Fatal("Server failed to start", middleware.Err(err))
 		}
 	}()
 
@@ -134,14 +148,14 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	logger.Info("Shutting down server...")
+	middleware.Info("Shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Fatal("Server forced to shutdown", logger.Err(err))
+		middleware.Fatal("Server forced to shutdown", middleware.Err(err))
 	}
 
-	logger.Info("Server exited")
+	middleware.Info("Server exited")
 }

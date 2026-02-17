@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"context"
-	"net/http"
 	"strconv"
 	"sync"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"llm-gateway/internal/config"
+	"llm-gateway/pkg/errors"
 )
 
 // RateLimiter implements token bucket rate limiting (in-memory)
@@ -107,14 +107,9 @@ func RateLimit(cfg config.RateLimitConfig) gin.HandlerFunc {
 
 		// Check global limit
 		if !globalLimiter.Allow() {
-			c.JSON(http.StatusTooManyRequests, gin.H{
-				"error": gin.H{
-					"message":     "Rate limit exceeded",
-					"type":        "rate_limit_error",
-					"code":        "rate_limit_exceeded",
-					"retry_after": strconv.Itoa(int(cfg.GlobalQPS)),
-				},
-			})
+			err := errors.RateLimitExceeded("Rate limit exceeded")
+			c.Header("Retry-After", strconv.Itoa(int(cfg.GlobalQPS)))
+			err.JSON(c)
 			c.Abort()
 			return
 		}

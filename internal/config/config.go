@@ -10,27 +10,27 @@ import (
 
 // Config represents the application configuration
 type Config struct {
-	Server        ServerConfig        `yaml:"server"`
-	Logger        LoggerConfig        `yaml:"logger"`
-	Database      DatabaseConfig      `yaml:"database"`
-	Redis         RedisConfig         `yaml:"redis"`
-	PythonWorker  PythonWorkerConfig  `yaml:"python_worker"`
-	Providers     ProvidersConfig    `yaml:"providers"`
-	Cache         CacheConfig        `yaml:"cache"`
-	RateLimit     RateLimitConfig    `yaml:"ratelimit"`
-	Models        []ModelConfig      `yaml:"models"`
-	Monitoring    MonitoringConfig   `yaml:"monitoring"`
+	Server       ServerConfig       `yaml:"server"`
+	Logger       LoggerConfig       `yaml:"logger"`
+	Database     DatabaseConfig     `yaml:"database"`
+	Redis        RedisConfig        `yaml:"redis"`
+	PythonWorker PythonWorkerConfig `yaml:"python_worker"`
+	Providers    ProvidersConfig    `yaml:"providers"`
+	Cache        CacheConfig        `yaml:"cache"`
+	RateLimit    RateLimitConfig    `yaml:"ratelimit"`
+	Models       []ModelConfig      `yaml:"models"`
+	Monitoring   MonitoringConfig   `yaml:"monitoring"`
 }
 
 type ServerConfig struct {
 	Host string `yaml:"host"`
 	Port int    `yaml:"port"`
-	Mode string `yaml:"mode"` // debug, release
+	Mode string `yaml:"mode"` // debug, release 发布
 }
 
 type LoggerConfig struct {
-	Level      string `yaml:"level"`      // debug, info, warn, error
-	Format     string `yaml:"format"`     // json, console
+	Level      string `yaml:"level"`       // debug, info, warn, error
+	Format     string `yaml:"format"`      // json, console
 	OutputPath string `yaml:"output_path"` // stdout, stderr, or file path
 }
 
@@ -42,6 +42,7 @@ type DatabaseConfig struct {
 	DBName   string `yaml:"name"`
 }
 
+// RedisConfig represents Redis connection configuration
 type RedisConfig struct {
 	Address  string `yaml:"address"`
 	Password string `yaml:"password"`
@@ -54,9 +55,9 @@ type PythonWorkerConfig struct {
 }
 
 type ProvidersConfig struct {
-	OpenAI   ProviderConfig `yaml:"openai"`
+	OpenAI    ProviderConfig `yaml:"openai"`
 	Anthropic ProviderConfig `yaml:"anthropic"`
-	MiniMax  ProviderConfig `yaml:"minimax"`
+	MiniMax   ProviderConfig `yaml:"minimax"`
 }
 
 type ProviderConfig struct {
@@ -73,30 +74,30 @@ type CacheConfig struct {
 }
 
 type RateLimitConfig struct {
-	GlobalQPS     int               `yaml:"global_qps"`
-	Burst         int               `yaml:"burst"`
-	MaxTokens     int               `yaml:"max_tokens"`
-	ModelLimits   map[string]int   `yaml:"model_limits"`
+	GlobalQPS   int            `yaml:"global_qps"`
+	Burst       int            `yaml:"burst"`
+	MaxTokens   int            `yaml:"max_tokens"`
+	ModelLimits map[string]int `yaml:"model_limits"`
 }
 
 type ModelConfig struct {
-	Name        string `yaml:"name"`
-	Provider    string `yaml:"provider"`
-	Weight      int    `yaml:"weight"`
-	Fallback    string `yaml:"fallback"`
-	MaxContext  int    `yaml:"max_context"`
-	Tokenizer   string `yaml:"tokenizer"`
-	IsActive    bool   `yaml:"is_active"`
+	Name       string `yaml:"name"`
+	Provider   string `yaml:"provider"`
+	Weight     int    `yaml:"weight"`
+	Fallback   string `yaml:"fallback"`
+	MaxContext int    `yaml:"max_context"`
+	Tokenizer  string `yaml:"tokenizer"`
+	IsActive   bool   `yaml:"is_active"`
 }
 
 type MonitoringConfig struct {
 	Prometheus PrometheusConfig `yaml:"prometheus"`
-	Jaeger     JaegerConfig    `yaml:"jaeger"`
+	Jaeger     JaegerConfig     `yaml:"jaeger"`
 }
 
 type PrometheusConfig struct {
-	Enabled bool   `yaml:"enabled"`
-	Port    int    `yaml:"port"`
+	Enabled bool `yaml:"enabled"`
+	Port    int  `yaml:"port"`
 }
 
 type JaegerConfig struct {

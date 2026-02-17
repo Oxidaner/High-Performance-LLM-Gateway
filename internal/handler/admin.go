@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"llm-gateway/internal/config"
 	"llm-gateway/internal/storage"
+	"llm-gateway/pkg/errors"
 )
 
 // AdminAuth validates admin requests
@@ -17,12 +18,7 @@ func AdminAuth(cfg *config.Config) gin.HandlerFunc {
 		// Simple admin key check - in production use proper auth
 		adminKey := c.GetHeader("X-Admin-Key")
 		if adminKey == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": gin.H{
-					"message": "Missing admin key",
-					"type":   "invalid_request_error",
-				},
-			})
+			errors.InvalidRequest("Missing admin key").JSON(c)
 			c.Abort()
 			return
 		}
@@ -35,12 +31,7 @@ func CreateAPIKey(pg *storage.PostgresClient, redisClient *storage.RedisClient) 
 	return func(c *gin.Context) {
 		var req CreateKeyRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": gin.H{
-					"message": err.Error(),
-					"type":   "invalid_request_error",
-				},
-			})
+			errors.InvalidRequest(err.Error()).JSON(c)
 			return
 		}
 
@@ -51,12 +42,7 @@ func CreateAPIKey(pg *storage.PostgresClient, redisClient *storage.RedisClient) 
 		// Save to database
 		key, err := pg.CreateAPIKey(c.Request.Context(), keyHash, req.Name, req.RateLimit)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": gin.H{
-					"message": "Failed to create API key",
-					"type":   "server_error",
-				},
-			})
+			errors.InternalError("Failed to create API key").JSON(c)
 			return
 		}
 
@@ -75,12 +61,7 @@ func ListAPIKeys(pg *storage.PostgresClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		keys, err := pg.ListAPIKeys(c.Request.Context())
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": gin.H{
-					"message": "Failed to list API keys",
-					"type":   "server_error",
-				},
-			})
+			errors.InternalError("Failed to list API keys").JSON(c)
 			return
 		}
 
@@ -93,22 +74,12 @@ func DeleteAPIKey(pg *storage.PostgresClient, redisClient *storage.RedisClient) 
 	return func(c *gin.Context) {
 		id := c.Param("id")
 		if id == "" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": gin.H{
-					"message": "Key ID is required",
-					"type":   "invalid_request_error",
-				},
-			})
+			errors.InvalidRequest("Key ID is required").JSON(c)
 			return
 		}
 
 		if err := pg.DeleteAPIKey(c.Request.Context(), id); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": gin.H{
-					"message": "Failed to delete API key",
-					"type":   "server_error",
-				},
-			})
+			errors.InternalError("Failed to delete API key").JSON(c)
 			return
 		}
 
@@ -121,10 +92,10 @@ func GetStats(pg *storage.PostgresClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Placeholder - would query actual stats from database
 		c.JSON(http.StatusOK, gin.H{
-			"total_requests":   0,
-			"total_tokens":     0,
-			"total_cost":       0,
-			"cache_hit_rate":   0,
+			"total_requests": 0,
+			"total_tokens":   0,
+			"total_cost":     0,
+			"cache_hit_rate": 0,
 		})
 	}
 }

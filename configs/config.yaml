@@ -20,8 +20,8 @@ database:
 # Redis (cache + vector)
 redis:
   address: localhost:6379
-  password: ""
-  db: 0
+  password: "12345"
+  db: 1
 
 # Python Worker (embedding service)
 python_worker:

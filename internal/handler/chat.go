@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"llm-gateway/internal/config"
 	"llm-gateway/internal/storage"
+	"llm-gateway/pkg/errors"
 )
 
 // ChatCompletion handles chat completion requests
@@ -19,23 +20,13 @@ func ChatCompletion(cfg *config.Config, redisClient *storage.RedisClient) gin.Ha
 		// Parse request
 		var req ChatCompletionRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": gin.H{
-					"message": err.Error(),
-					"type":   "invalid_request_error",
-				},
-			})
+			errors.InvalidRequest(err.Error()).JSON(c)
 			return
 		}
 
 		// Validate request
 		if err := validateChatRequest(req); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"error": gin.H{
-					"message": err.Error(),
-					"type":   "invalid_request_error",
-				},
-			})
+			errors.InvalidRequest(err.Error()).JSON(c)
 			return
 		}
 
@@ -59,12 +50,7 @@ func ChatCompletion(cfg *config.Config, redisClient *storage.RedisClient) gin.Ha
 		// Forward to LLM provider
 		resp, err := forwardToProvider(c, cfg, req)
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"error": gin.H{
-					"message": err.Error(),
-					"type":   "server_error",
-				},
-			})
+			errors.InternalError(err.Error()).JSON(c)
 			return
 		}
 
@@ -93,7 +79,7 @@ type ChatCompletionRequest struct {
 	MaxTokens   int           `json:"max_tokens,omitempty"`
 	TopP        float64       `json:"top_p,omitempty"`
 	Stream      bool          `json:"stream,omitempty"`
-	Stop        []string     `json:"stop,omitempty"`
+	Stop        []string      `json:"stop,omitempty"`
 }
 
 // ChatMessage represents a chat message
@@ -124,7 +110,7 @@ type Choice struct {
 type Usage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens     int `json:"total_tokens"`
+	TotalTokens      int `json:"total_tokens"`
 }
 
 func validateChatRequest(req ChatCompletionRequest) error {
