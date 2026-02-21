@@ -1,3 +1,5 @@
+# English | [中文版](./README-zh.md)
+
 # High-Performance LLM Gateway
 
 Enterprise-grade API gateway for LLM requests with multi-provider support, intelligent caching, AI Agent, and RAG capabilities.
