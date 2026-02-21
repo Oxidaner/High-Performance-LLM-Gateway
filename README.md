@@ -1,6 +1,6 @@
 # High-Performance LLM Gateway
 
-Enterprise-grade API gateway for managing LLM (Large Language Model) requests with multi-provider support, intelligent caching, and rate limiting.
+Enterprise-grade API gateway for LLM requests with multi-provider support, intelligent caching, AI Agent, and RAG capabilities.
 
 ## Architecture
 
@@ -15,11 +15,14 @@ flowchart TB
         Rate[Rate Limit]
         Cache[Cache Router]
         Router[LLM Router]
+        Agent[AI Agent<br/>ReAct/CoT]
+        RAG[RAG Engine<br/>Vector Search]
     end
 
     subgraph Redis["Redis Stack"]
         L1[L1 Exact Cache<br/>SHA256 Hash]
         L2[L2 Semantic Cache<br/>Vector Similarity]
+        Vector[Vector Index<br/>RAG Documents]
     end
 
     subgraph Worker["Python Worker :8081"]
@@ -28,6 +31,7 @@ flowchart TB
 
     subgraph DB["PostgreSQL"]
         Keys[API Keys<br/>Persistence]
+        Docs[RAG Documents<br/>Knowledge Base]
     end
 
     subgraph LLM["LLM Providers"]
@@ -50,6 +54,10 @@ flowchart TB
     Router --> Claude
     Router --> MiniMax
 
+    Agent --> RAG
+    Agent --> Embed
+    RAG --> Vector
+
     style Gateway fill:#e3f2fd,stroke:#1976d2
     style Redis fill:#e8f5e9,stroke:#388e3c
     style Worker fill:#fff3e0,stroke:#f57c00
@@ -65,6 +73,17 @@ flowchart TB
   - L2 Semantic Cache: Redis Vector (Embedding similarity >0.95), 10-50ms latency
 - **Token Rate Limiting**: Token bucket algorithm with TikToken Go
 - **High Performance**: 10,000+ QPS throughput
+- **AI Agent**:
+  - ReAct/CoT reasoning engine
+  - Tool calling (web search, database query, API call)
+  - Autonomous decision making
+- **RAG**:
+  - Document upload and processing
+  - Vector storage with Redis
+  - Knowledge base management
+- **Intelligent Retry**: Exponential backoff with retryable error detection
+- **Prompt Optimization**: System prompt caching, history compression
+- **Distributed Tracing**: OpenTelemetry / Jaeger integration
 - **Authentication**: API Key based auth with Redis caching
 - **Admin API**: Key management and usage statistics
 
@@ -141,6 +160,38 @@ curl -X POST http://localhost:8080/v1/embeddings \
   }'
 ```
 
+### RAG API
+
+```bash
+# Upload document
+curl -X POST http://localhost:8080/v1/rag/documents \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F "file=@document.txt"
+
+# RAG chat
+curl -X POST http://localhost:8080/v1/rag/chat \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What is the main topic of the documents?"
+  }'
+```
+
+### Agent API
+
+```bash
+# Agent chat (with reasoning)
+curl -X POST http://localhost:8080/v1/agent/chat \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "What was the total cost of GPT-4 last week?"
+  }'
+
+# List available tools
+curl http://localhost:8080/v1/agent/tools
+```
+
 ### Admin API
 
 ```bash
@@ -165,6 +216,7 @@ curl http://localhost:8080/api/v1/stats
 | L1 Cache Hit | < 1ms |
 | L2 Cache Hit | 10-50ms |
 | Cache Hit Rate | 80% |
+| LLM Success Rate | > 99.5% |
 
 ## Project Structure
 
@@ -172,13 +224,22 @@ curl http://localhost:8080/api/v1/stats
 llm-gateway/
 ├── cmd/server/           # Entry point
 ├── internal/
-│   ├── config/          # Configuration loading
-│   ├── handler/         # HTTP handlers
-│   ├── logger/           # Zap logger
-│   ├── middleware/       # Auth, rate limiting
-│   └── storage/         # Redis, PostgreSQL clients
-├── configs/              # Configuration files
-├── docs/                 # Documentation
+│   ├── agent/          # AI Agent module
+│   │   ├── agent.go   # Agent core
+│   │   ├── react.go    # ReAct reasoning
+│   │   ├── cot.go      # CoT reasoning
+│   │   └── tools/      # Tool implementations
+│   ├── rag/            # RAG module
+│   │   ├── document.go # Document processing
+│   │   ├── chunker.go  # Text chunking
+│   │   └── retriever.go # Vector retrieval
+│   ├── config/         # Configuration loading
+│   ├── handler/        # HTTP handlers
+│   ├── middleware/     # Auth, rate limiting
+│   ├── service/        # Router, cache, providers
+│   └── storage/       # Redis, PostgreSQL clients
+├── configs/             # Configuration files
+├── docs/                # Documentation
 └── go.mod
 ```
 
@@ -188,6 +249,7 @@ llm-gateway/
 - **AI Worker**: Python + FastAPI + sentence-transformers
 - **Cache**: Redis Stack (vector search + caching)
 - **Database**: PostgreSQL
+- **Tracing**: OpenTelemetry + Jaeger
 - **Deployment**: Kubernetes
 
 ## License
