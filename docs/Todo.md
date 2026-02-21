@@ -136,6 +136,26 @@
 - [ ] Task 2.5.5: 实现熔断器 (连续失败 N 次熔断)
 - [ ] Task 2.5.6: 实现自动降级逻辑
 
+### Task 2.6: 智能重试 (Day 78-80)
+
+- [ ] Task 2.6.1: 实现指数退避算法
+- [ ] Task 2.6.2: 实现可重试错误码判断
+- [ ] Task 2.6.3: 实现最大重试次数限制
+- [ ] Task 2.6.4: 实现熔断期间跳过逻辑
+
+### Task 2.7: Prompt 优化 (Day 81-82)
+
+- [ ] Task 2.7.1: 实现系统提示词缓存
+- [ ] Task 2.7.2: 实现历史消息压缩
+- [ ] Task 2.7.3: 实现上下文截断
+
+### Task 2.8: 调用链观测 (Day 83-85)
+
+- [ ] Task 2.8.1: 集成 OpenTelemetry
+- [ ] Task 2.8.2: 实现 TraceID 生成和透传
+- [ ] Task 2.8.3: 实现关键节点埋点
+- [ ] Task 2.8.4: 配置 Jaeger 上报
+
 ---
 
 ## 四、语义缓存 (Phase 3) - Week 11-12
@@ -215,6 +235,88 @@
 
 ---
 
+## 六、AI Agent + RAG (Phase 6) - Week 17-24
+
+> ⚡ **架构设计**: Go 内置 Agent + 预留 Python 扩展接口
+> - 优先实现 RAG 核心业务闭环
+> - Agent 作为 RAG 的智能调度层
+
+### Task 6.1: RAG 基础功能 (Week 17-18)
+
+- [ ] Task 6.1.1: 设计 RAG 数据结构 (knowledge_bases, rag_documents)
+- [ ] Task 6.1.2: 实现文档上传接口 (支持 TXT/MD)
+- [ ] Task 6.1.3: 实现文档解析与文本分块 (chunk_size=512, overlap=50)
+- [ ] Task 6.1.4: 创建 Redis Vector 索引 (rag:documents)
+- [ ] Task 6.1.5: 实现知识库 CRUD API
+
+### Task 6.2: RAG 检索功能 (Week 19-20)
+
+- [ ] Task 6.2.1: 实现向量相似度检索 (FT.SEARCH)
+- [ ] Task 6.2.2: 实现 RAG 问答接口 (/v1/rag/chat)
+- [ ] Task 6.2.3: 实现上下文组装与引用返回
+- [ ] Task 6.2.4: 配置相似度阈值 (score_threshold=0.7)
+
+### Task 6.3: Agent 框架 (Week 21-22)
+
+- [ ] Task 6.3.1: 设计 Agent 核心结构 (agent.go)
+- [ ] Task 6.3.2: 实现 ReAct 推理引擎
+- [ ] Task 6.3.3: 实现工具注册表
+- [ ] Task 6.3.4: 实现 Agent API 接口 (/v1/agent/chat)
+
+### Task 6.4: Agent 工具集成 (Week 23)
+
+#### Task 6.4.1: 网络搜索工具 (Day 1-2)
+> 演示场景: "基于上传的财报分析股价走势，同时调用搜索获取最新股价"
+
+- [ ] Task 6.4.1.1: 创建 tools/web_search.go，实现 WebSearchTool 结构
+- [ ] Task 6.4.1.2: 实现 SearchTool.Execute() 方法
+- [ ] Task 6.4.1.3: 添加 SerpAPI/搜索API 配置 (config.yaml)
+- [ ] Task 6.4.1.4: 实现 HTTP 客户端调用搜索 API
+- [ ] Task 6.4.1.5: 解析搜索结果并格式化返回
+- [ ] Task 6.4.1.6: 注册到工具注册表
+- [ ] Task 6.4.1.7: 编写单元测试
+
+#### Task 6.4.2: 数据库查询工具 (Day 3-4)
+> 演示场景: "查询上周 GPT-4 的调用成本 Top3 的 API Key"
+
+- [ ] Task 6.4.2.1: 创建 tools/db_query.go，实现 DBQueryTool 结构
+- [ ] Task 6.4.2.2: 定义预定义查询模板 (cost_by_model, cost_by_api_key 等)
+- [ ] Task 6.4.2.3: 实现参数化查询执行 (防止 SQL 注入)
+- [ ] Task 6.4.2.4: 添加结果行数限制 (max_rows=100)
+- [ ] Task 6.4.2.5: 注册到工具注册表
+- [ ] Task 6.4.2.6: 编写单元测试
+
+#### Task 6.4.3: 其他工具 (Day 5)
+
+- [ ] Task 6.4.3.1: 实现 API 调用工具 (通用 HTTP)
+- [ ] Task 6.4.3.2: Embedding 工具 (复用现有 /v1/embeddings 接口)
+
+#### Task 6.4.4: 工具注册与发现 (Day 6)
+
+- [ ] Task 6.4.4.1: 创建 tools/registry.go 实现工具注册表
+- [ ] Task 6.4.4.2: 实现 ListTools() 接口 (返回 JSON Schema)
+- [ ] Task 6.4.4.3: 实现 GET /v1/agent/tools 接口
+
+### Task 6.5: 优化与集成 (Week 24)
+
+#### Task 6.5.1: 边缘场景处理 (Day 1-2)
+> 1 天可完成
+
+- [ ] Task 6.5.1.1: Agent 最大步数限制 (max_steps=10)
+- [ ] Task 6.5.1.2: Agent 循环调用检测 (连续3次同一工具)
+- [ ] Task 6.5.1.3: 大文档分块策略 (>50页增加重叠)
+- [ ] Task 6.5.1.4: 低相似度处理 (阈值 0.5/0.7)
+- [ ] Task 6.5.1.5: 大请求跳过 L1 缓存 (>10k Token)
+
+#### Task 6.5.2: 优化与测试
+
+- [ ] Task 6.5.2.1: 实现 Agent 自主决策逻辑
+- [ ] Task 6.5.2.2: RAG + Agent 集成测试
+- [ ] Task 6.5.2.3: 性能优化
+- [ ] Task 6.5.2.4: 完善文档
+
+---
+
 ## 七、代码里程碑 (速查)
 
 | 里程碑 | 目标 | 对应 Task | 状态 |
@@ -226,6 +328,9 @@
 | M4 | L1 缓存 | Task 2.4 | ✓ 完成 |
 | M5 | L2 语义缓存 | Task 3.2 | - |
 | M6 | K8s 部署 | Task 4.1 - 4.2 | - |
+| M7 | RAG 基础功能 | Task 6.1 - 6.2 | 待开发 |
+| M8 | AI Agent 框架 | Task 6.3 | 待开发 |
+| M9 | Agent 工具集成 | Task 6.4 | 待开发 (网络搜索+数据库查询) |
 
 ---
 
@@ -296,6 +401,6 @@ K8s:
 
 ---
 
-*文档版本: v1.5*
-*最后更新: 2026-02-17*
-*代码扫描更新完成*
+*文档版本: v1.8*
+*最后更新: 2026-02-21*
+*精简 SPEC.md，删除安全性/成本优化/开发计划/验收标准*

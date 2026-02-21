@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,14 +16,30 @@ import (
 	"llm-gateway/internal/storage"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
+var mode = flag.String("mode", "release", "run mode: debug or release")
+
 func main() {
+	flag.Parse()
+
+	// Load .env file if exists
+	_ = godotenv.Load()
+
 	// Load configuration
 	cfg, err := config.Load("configs/config.yaml")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
 		os.Exit(1)
+	}
+
+	// Override mode from command line
+	// sample:
+	//	# 默认正式环境        # 开发模式                         # 正式环境
+	//  ./llm-gateway        ./llm-gateway -mode=debug         ./llm-gateway -mode=release
+	if *mode == "debug" || *mode == "release" {
+		cfg.Server.Mode = *mode
 	}
 
 	// Initialize logger (zap)
@@ -83,6 +100,41 @@ func main() {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	/**
+		func New(opts ...OptionFunc) *Engine {
+		debugPrintWARNINGNew()
+		engine := &Engine{
+			RouterGroup: RouterGroup{
+				Handlers: nil,
+				basePath: "/",
+				root:     true,
+			},
+			FuncMap:                template.FuncMap{}, // 自定义模板函数 一个map，用于在模板中调用自定义函数
+			RedirectTrailingSlash:  true, // 重定向 trailing slash 到没有 trailing slash 的 URL
+			RedirectFixedPath:      false, // 重定向固定路径到没有固定路径的 URL
+			HandleMethodNotAllowed: false, // 是否处理 HTTP 方法不允许的情况
+			ForwardedByClientIP:    true,
+			RemoteIPHeaders:        []string{"X-Forwarded-For", "X-Real-IP"},
+			TrustedPlatform:        defaultPlatform,
+			UseRawPath:             false,
+			RemoveExtraSlash:       false,
+			UnescapePathValues:     true,
+			MaxMultipartMemory:     defaultMultipartMemory,
+			trees:                  make(methodTrees, 0, 9),
+
+			delims:                 render.Delims{Left: "{{", Right: "}}"},
+			secureJSONPrefix:       "while(1);",
+			trustedProxies:         []string{"0.0.0.0/0", "::/0"},
+			trustedCIDRs:           defaultTrustedCIDRs,
+		}
+		engine.engine = engine
+		engine.pool.New = func() any {
+			return engine.allocateContext(engine.maxParams)
+		}
+		return engine.With(opts...)
+	}
+	*/
 
 	// Create router
 	router := gin.Default()

@@ -5,18 +5,19 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/lib/pq"
 	"llm-gateway/internal/config"
 
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
 // PostgresClient wraps the PostgreSQL connection
+// PostgresClient 包装 PostgreSQL 连接
 type PostgresClient struct {
 	db *sql.DB
 }
 
 // NewPostgres creates a new PostgreSQL client
+// NewPostgres 创建新的 PostgreSQL 客户端
 func NewPostgres(cfg config.DatabaseConfig) (*PostgresClient, error) {
 	dsn := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
@@ -51,17 +52,18 @@ func (p *PostgresClient) DB() *sql.DB {
 
 // APIKey represents an API key record
 type APIKey struct {
-	ID          string
-	KeyHash     string
-	Name        string
-	RateLimit   int
-	IsActive    bool
-	ExpiresAt   pq.NullTime
-	CreatedAt   pq.NullTime
-	UpdatedAt   pq.NullTime
+	ID        string
+	KeyHash   string
+	Name      string
+	RateLimit int
+	IsActive  bool
+	ExpiresAt pq.NullTime
+	CreatedAt pq.NullTime
+	UpdatedAt pq.NullTime
 }
 
 // GetAPIKeyByHash retrieves an API key by its hash
+// GetAPIKeyByHash 根据哈希值检索 API 密钥
 func (p *PostgresClient) GetAPIKeyByHash(ctx context.Context, keyHash string) (*APIKey, error) {
 	query := `
 		SELECT id, key_hash, name, rate_limit, is_active, expires_at, created_at, updated_at

@@ -1,7 +1,7 @@
 server:
   host: 0.0.0.0
   port: 8080
-  mode: debug
+  mode: release # 默认运行模式，也可以通过 -mode=debug 启动调试模式
 
 # Logger (zap)
 logger:
@@ -13,14 +13,14 @@ logger:
 database:
   host: localhost
   port: 5432
-  user: llm_gateway
+  user: postgres
   password: ${DB_PASSWORD}
-  name: llm_gateway
+  name: LLM_GateWay
 
 # Redis (cache + vector)
 redis:
   address: localhost:6379
-  password: "12345"
+  password: ${REDIS_PASSWORD}
   db: 1
 
 # Python Worker (embedding service)

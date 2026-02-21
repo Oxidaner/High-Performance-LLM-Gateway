@@ -25,7 +25,7 @@ type Config struct {
 type ServerConfig struct {
 	Host string `yaml:"host"`
 	Port int    `yaml:"port"`
-	Mode string `yaml:"mode"` // debug, release 发布
+	Mode string `yaml:"mode"` // debug 开发, release 发布
 }
 
 type LoggerConfig struct {
@@ -124,9 +124,17 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) applyEnvOverrides() {
+	// Database
 	if v := os.Getenv("DB_PASSWORD"); v != "" {
 		c.Database.Password = v
 	}
+
+	// Redis
+	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
+		c.Redis.Password = v
+	}
+
+	// Providers
 	if v := os.Getenv("OPENAI_API_KEY"); v != "" {
 		c.Providers.OpenAI.APIKey = v
 	}
@@ -136,9 +144,8 @@ func (c *Config) applyEnvOverrides() {
 	if v := os.Getenv("MINIMAX_API_KEY"); v != "" {
 		c.Providers.MiniMax.APIKey = v
 	}
-	if v := os.Getenv("REDIS_ADDRESS"); v != "" {
-		c.Redis.Address = v
-	}
+
+	// Python Worker
 	if v := os.Getenv("PYTHON_WORKER_URL"); v != "" {
 		c.PythonWorker.Address = v
 	}
