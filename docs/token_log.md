@@ -10,26 +10,33 @@
 
 ## 技能 (实际)
 - Golang: 精通 ✓
-- Python: **零基础** ← 重要
-- Redis: 熟悉基础，**向量搜索需学习** ← 重要
+- Python: 基础 ← 学习中
+- Redis: 熟悉，**向量搜索已学习** ← 重要
 - MySQL/Docker: 熟悉 ✓
 
 ## 项目: High-Performance LLM Gateway
 技术栈: Go + Python + Redis Stack + PostgreSQL + K8s
 
 ### 核心功能
+- LLM网关: OpenAI/Claude/MiniMax 统一接入
 - L1精确缓存: Redis Hash (SHA256 prompt)，< 1ms
 - L2语义缓存: Redis Vector (Embedding相似度>0.95)，10-50ms
 - Token限流: 令牌桶 + TikToken Go，10k QPS
 - 多模型路由: 加权轮询 + 熔断降级
+- **AI Agent**: ReAct/CoT 推理 + 工具调用
+- **RAG**: 文档上传 → 向量检索 → LLM生成
+- **智能重试**: 指数退避 + 可重试错误码
+- **Prompt优化**: 系统提示词缓存 + 历史消息压缩
+- **调用链观测**: OpenTelemetry/Jaeger
 - 认证: API Key (PostgreSQL)
 
 ## 开发阶段
-Phase 0: 基础知识学习 ← **当前**
+Phase 6: AI Agent + RAG 开发中
 
 ## 文档状态
-- SPEC.md (v1.1) ✓
-- Todo.md (v1.3) ✓ - 已细化120+Task，含学习网址
+- SPEC.md (v1.4) ✓ - 含 Agent/RAG/重试/追踪
+- Todo.md (v1.8) ✓ - 含 Phase 6 任务
+- CLAUDE.md ✓ - 项目指南
 - token_log.md ✓
 
 ## 常用链接 (速查)
@@ -42,7 +49,7 @@ Phase 0: 基础知识学习 ← **当前**
 ## 编码状态
 进行中 - M2 OpenAI API 调用完成 ✓
 
-## 当前代码状态 (2026-02-17)
+## 当前代码状态 (2026-02-21)
 
 ### 已实现
 - Go项目初始化 + Gin框架
@@ -59,7 +66,12 @@ Phase 0: 基础知识学习 ← **当前**
 - PostgreSQL 客户端
 - L1 缓存读写
 
-### 未实现
+### 待实现 (Phase 6)
+- AI Agent (ReAct/CoT 推理引擎)
+- RAG (文档上传、向量检索、知识库)
+- 智能重试 (指数退避)
+- Prompt 优化 (缓存、压缩)
+- 调用链观测 (OpenTelemetry/Jaeger)
 - Python Worker 服务
 - L2 语义缓存
 - TikToken 精确计算
@@ -75,6 +87,7 @@ https://github.com/Oxidaner/High-Performance-LLM-Gateway
 2026-02-16: 完成Zap日志库(Task 0.4.4)
 2026-02-17: 更新所有docs文档(CLAUDE.md, SPEC.md, Todo.md, token_log.md)
 2026-02-17: 代码扫描更新Todo状态
+2026-02-21: 新增AI Agent、RAG、智能重试、Prompt优化、调用链观测功能规格
 
 ---
-v1.6 | 2026-02-17
+v1.7 | 2026-02-21
