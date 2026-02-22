@@ -23,7 +23,7 @@
 - L2语义缓存: Redis Vector (Embedding相似度>0.95)，10-50ms
 - Token限流: 令牌桶 + TikToken Go，10k QPS
 - 多模型路由: 加权轮询 + 熔断降级
-- **AI Agent**: ReAct/CoT 推理 + 工具调用
+- **AI Agent**: ReAct/CoT 推理 + 工具调用 + 混合模式 (默认技能集内置 + 动态发现)
 - **RAG**: 文档上传 → 向量检索 → LLM生成
 - **智能重试**: 指数退避 + 可重试错误码
 - **Prompt优化**: 系统提示词缓存 + 历史消息压缩

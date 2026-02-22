@@ -54,6 +54,17 @@ High-Performance LLM Gateway - Enterprise-grade API gateway with AI Agent and RA
 #### Agent
 - `POST /v1/agent/chat` - Agent 对话
 - `GET /v1/agent/tools` - 工具列表
+- `POST /v1/agent/tools/register` - 注册新工具
+- `DELETE /v1/agent/tools/:name` - 删除工具
+
+#### Agent Skills (混合模式)
+- **默认技能集 (内置)**:
+  - `rag_search`: RAG 文档检索
+  - `web_search`: 网络搜索
+  - `db_query`: 数据库查询
+  - `http_call`: HTTP API 调用
+  - `embedding`: 向量生成
+- **动态发现**: 支持通过 API 注册自定义工具
 
 #### Admin
 - `POST /api/v1/keys` - 创建 API Key
