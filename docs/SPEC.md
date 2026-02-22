@@ -446,6 +446,7 @@ K8s ConfigMap 变更
 ### 2.11 AI Agent
 
 > ⚡ **架构**: Go 内置 Agent + 预留 Python 扩展接口
+> ⚡ **模式**: 混合模式 - 默认技能集内置 + 动态发现扩展
 
 | 能力 | 描述 | 状态 |
 |------|------|------|
@@ -454,7 +455,46 @@ K8s ConfigMap 变更
 | 工具调用 | 网络搜索、数据库查询、API调用 | 待实现 |
 | 自主决策 | LLM 自主判断是否调用工具 | 待实现 |
 
-#### 2.8.1 数据流
+#### 2.11.1 默认技能集 (内置)
+
+内置默认工具，保证核心性能和可靠性：
+
+| 工具 | 功能 | 说明 |
+|------|------|------|
+| `rag_search` | RAG 检索 | 知识库文档检索 |
+| `web_search` | 网络搜索 | 实时信息获取 |
+| `db_query` | 数据库查询 | 结构化数据查询 |
+| `http_call` | API 调用 | 外部 HTTP API |
+| `embedding` | 向量生成 | 复用 /v1/embeddings |
+
+> ⚠️ **Token 计算器**: 作为内部服务，不暴露给 Agent，仅用于限流/计费
+
+#### 2.11.2 动态发现接口
+
+预留扩展能力，支持自定义工具：
+
+| 接口 | 方法 | 功能 |
+|------|------|------|
+| `/v1/agent/tools` | GET | 获取可用工具列表 |
+| `/v1/agent/tools/register` | POST | 注册新工具 |
+| `/v1/agent/tools/:name` | DELETE | 删除工具 |
+
+#### 2.11.3 统一 Tool 接口
+
+所有工具（内置/动态）遵循统一接口：
+
+```go
+type Tool interface {
+    Name() string        // 工具名称
+    Description() string // 工具描述
+    Schema() ToolSchema  // JSON Schema (供 LLM 函数调用)
+    Execute(ctx context.Context, params map[string]interface{}) (string, error)
+}
+```
+
+> 📖 详细接口定义见「13.2.2.3 工具注册与发现」
+
+#### 2.11.4 数据流
 
 ```mermaid
 sequenceDiagram
@@ -494,7 +534,7 @@ sequenceDiagram
     Gateway-->>Client: 最终响应
 ```
 
-#### 2.8.2 工具调用流程
+#### 2.11.5 工具调用流程
 
 ```mermaid
 flowchart TB
@@ -532,7 +572,7 @@ flowchart TB
 | 向量检索 | Redis Vector FT.SEARCH | 待实现 |
 | RAG 问答 | 检索 + LLM 生成 | 待实现 |
 
-#### 2.9.1 数据流
+#### 2.12.1 数据流
 
 ```mermaid
 flowchart LR
@@ -553,7 +593,7 @@ flowchart LR
     end
 ```
 
-#### 2.9.2 RAG 问答时序
+#### 2.12.2 RAG 问答时序
 
 ```mermaid
 sequenceDiagram
@@ -580,7 +620,7 @@ sequenceDiagram
     Gateway-->>Client: {"answer": "...", "sources": [...]}
 ```
 
-#### 2.9.3 大文档处理
+#### 2.12.3 大文档处理
 
 ```mermaid
 flowchart TB
