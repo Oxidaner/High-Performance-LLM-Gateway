@@ -8,46 +8,47 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"llm-gateway/internal/config"
 	"llm-gateway/internal/storage"
 	"llm-gateway/pkg/errors"
+
+	"github.com/gin-gonic/gin"
 )
 
-// ChatCompletion handles chat completion requests
+// ChatCompletion handles chat completion requests 处理聊天完成请求
 func ChatCompletion(cfg *config.Config, redisClient *storage.RedisClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Parse request
+		// Parse request 解析请求
 		var req ChatCompletionRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
+		if err := c.ShouldBindJSON(&req); err != nil { // 绑定JSON请求体到req结构体
 			errors.InvalidRequest(err.Error()).JSON(c)
 			return
 		}
 
-		// Validate request
+		// Validate request 验证请求
 		if err := validateChatRequest(req); err != nil {
 			errors.InvalidRequest(err.Error()).JSON(c)
 			return
 		}
 
-		// Check L1 cache
+		// Check L1 cache 查L1缓存
 		if cfg.Cache.Enabled {
 			cacheKey := generateCacheKey(req)
-			if cached, err := redisClient.HGet(c.Request.Context(), "cache:l1", cacheKey); err == nil && cached != "" {
-				// Cache hit - return cached response
+			if cached, err := redisClient.HGet(c.Request.Context(), "cache:l1", cacheKey); err == nil && cached != "" { //内存使用更高效 可以方便地批量操作相关的缓存项
+				// Cache hit - return cached response // 缓存命中 - 返回缓存响应
 				var resp ChatCompletionResponse
-				if err := json.Unmarshal([]byte(cached), &resp); err == nil {
-					if req.Stream {
-						handleStreamingResponse(c, &resp)
+				if err := json.Unmarshal([]byte(cached), &resp); err == nil { // 解析缓存数据到resp结构体
+					if req.Stream { // 如果请求流模式
+						handleStreamingResponse(c, &resp) // 处理流式响应 模拟流式响应 保护用户体验
 					} else {
-						c.JSON(http.StatusOK, resp)
+						c.JSON(http.StatusOK, resp) // 处理非流式响应
 					}
 					return
 				}
 			}
 		}
 
-		// Forward to LLM provider
+		// Forward to LLM provider 转发到LLM提供程序
 		resp, err := forwardToProvider(c, cfg, req)
 		if err != nil {
 			errors.InternalError(err.Error()).JSON(c)
@@ -71,7 +72,7 @@ func ChatCompletion(cfg *config.Config, redisClient *storage.RedisClient) gin.Ha
 	}
 }
 
-// ChatCompletionRequest represents the OpenAI chat completion request
+// ChatCompletionRequest represents the OpenAI chat completion request  表示OpenAI聊天完成请求
 type ChatCompletionRequest struct {
 	Model       string        `json:"model"`
 	Messages    []ChatMessage `json:"messages"`
@@ -124,7 +125,7 @@ func validateChatRequest(req ChatCompletionRequest) error {
 }
 
 func generateCacheKey(req ChatCompletionRequest) string {
-	// Simple hash based on model + first message content
+	// Simple hash based on model + first message content 基于模型 + 第一条消息内容 生成缓存键
 	data := fmt.Sprintf("%s:%s", req.Model, req.Messages[0].Content)
 	return fmt.Sprintf("%x", []byte(data))
 }
@@ -186,30 +187,30 @@ func getProvider(model string) string {
 }
 
 func handleStreamingResponse(c *gin.Context, resp *ChatCompletionResponse) {
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
+	c.Header("Content-Type", "text/event-stream; charset=utf-8") // 设置内容类型为事件流
+	c.Header("Cache-Control", "no-cache")                        // 禁用缓存
+	c.Header("Connection", "keep-alive")                         // 保持连接_alive
 
-	// Simulate streaming by sending chunks
-	content := resp.Choices[0].Message.Content
+	// Simulate streaming by sending chunks 模拟流式响应，按指定大小发送数据块
+	content := resp.Choices[0].Message.Content // 获取响应内容
 	chunkSize := 20
 	for i := 0; i < len(content); i += chunkSize {
 		end := i + chunkSize
 		if end > len(content) {
 			end = len(content)
 		}
-		chunk := content[i:end]
+		chunk := content[i:end] // 提取当前数据块
 
-		c.SSEvent("message", gin.H{
+		c.SSEvent("message", gin.H{ // 发送事件流消息
 			"choices": []gin.H{
 				{
 					"delta": gin.H{"content": chunk},
 				},
 			},
 		})
-		c.Writer.Flush()
-		time.Sleep(10 * time.Millisecond)
+		c.Writer.Flush()                  // 刷新响应缓冲区，确保客户端立即接收数据
+		time.Sleep(10 * time.Millisecond) // 模拟延迟，实际应用中可根据需要调整
 	}
 
-	c.SSEvent("done", nil)
+	c.SSEvent("done", nil) // 发送完成事件流消息
 }

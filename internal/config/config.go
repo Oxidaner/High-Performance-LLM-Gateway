@@ -66,18 +66,18 @@ type ProviderConfig struct {
 }
 
 type CacheConfig struct {
-	Enabled             bool    `yaml:"enabled"`
-	SimilarityThreshold float64 `yaml:"similarity_threshold"`
-	TTL                 int     `yaml:"ttl"` // seconds
-	L1TTL               int     `yaml:"l1_ttl"`
-	MaxCacheSize        int     `yaml:"max_cache_size"`
+	Enabled             bool    `yaml:"enabled"`              // 是否启用缓存
+	SimilarityThreshold float64 `yaml:"similarity_threshold"` // 缓存相似度阈值
+	TTL                 int     `yaml:"ttl"`                  // 缓存过期时间（秒）
+	L1TTL               int     `yaml:"l1_ttl"`               // L1缓存过期时间（秒）
+	MaxCacheSize        int     `yaml:"max_cache_size"`       // 最大缓存大小
 }
 
 type RateLimitConfig struct {
-	GlobalQPS   int            `yaml:"global_qps"`
-	Burst       int            `yaml:"burst"`
-	MaxTokens   int            `yaml:"max_tokens"`
-	ModelLimits map[string]int `yaml:"model_limits"`
+	GlobalQPS   int            `yaml:"global_qps"`   // 全局QPS限制
+	Burst       int            `yaml:"burst"`        // 令牌桶 突发容量
+	MaxTokens   int            `yaml:"max_tokens"`   // 最大令牌数 单请求最大 token
+	ModelLimits map[string]int `yaml:"model_limits"` // 单模型 QPS 限制
 }
 
 type ModelConfig struct {

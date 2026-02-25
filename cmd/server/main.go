@@ -140,8 +140,8 @@ func main() {
 	router := gin.Default()
 
 	// Apply global middleware
-	router.Use(middleware.Recovery())
-	router.Use(middleware.CORS())
+	router.Use(middleware.Recovery()) // 恢复中间件，用于处理panic
+	router.Use(middleware.CORS())     // CORS 中间件，用于处理跨域请求
 
 	// Health check
 	router.GET("/health", func(c *gin.Context) {

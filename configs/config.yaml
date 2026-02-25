@@ -39,17 +39,17 @@ providers:
     base_url: https://api.minimax.chat/v1
 
 cache:
-  enabled: true
-  similarity_threshold: 0.95
-  ttl: 604800
-  l1_ttl: 3600
-  max_cache_size: 100000
+  enabled: true  # 启用缓存
+  similarity_threshold: 0.95  # 缓存相似度阈值
+  ttl: 604800  # 缓存过期时间（秒）
+  l1_ttl: 3600  # L1缓存过期时间（秒）
+  max_cache_size: 100000  # 最大缓存大小
 
 ratelimit:
-  global_qps: 10000
-  burst: 500
-  max_tokens: 128000
-  model_limits:
+  global_qps: 10000  # 全局 QPS 限制
+  burst: 500  # 令牌桶 突发容量
+  max_tokens: 128000 # 单请求最大 token 数
+  model_limits: # 单模型 QPS 限制
     gpt-4: 1000
     gpt-3.5-turbo: 3000
     claude-3-haiku: 2000

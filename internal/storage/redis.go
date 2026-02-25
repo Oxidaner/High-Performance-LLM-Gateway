@@ -25,7 +25,7 @@ func NewRedis(cfg config.RedisConfig) (*RedisClient, error) {
 	})
 
 	ctx := context.Background()
-	
+
 	if err := client.Ping(ctx).Err(); err != nil {
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
@@ -58,7 +58,7 @@ func (r *RedisClient) SetWithTTL(ctx context.Context, key string, value interfac
 	return r.client.Set(ctx, key, value, 0).Err()
 }
 
-// HGet gets a field from a hash
+// HGet gets a field from a hash 从哈希中获取字段
 func (r *RedisClient) HGet(ctx context.Context, key, field string) (string, error) {
 	return r.client.HGet(ctx, key, field).Result()
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin" // Web framework
 )
 
-// APIKeyAuth validates API keys and stores key info in context 用于验证 API 密钥的中间件
+// APIKeyAuth validates API keys and stores key info in context 用于验证 API 密钥的中间件并在上下文中存储密钥信息
 func APIKeyAuth(redisClient *storage.RedisClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Skip auth if Redis is not available (dev mode)
@@ -26,22 +26,22 @@ func APIKeyAuth(redisClient *storage.RedisClient) gin.HandlerFunc {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			errors.InvalidRequest("Missing authorization header").JSON(c)
-			c.Abort()
+			c.Abort() // 终止请求处理流程
 			return
 		}
 
-		// Extract Bearer token
-		parts := strings.SplitN(authHeader, " ", 2)
+		// Extract Bearer token from header 从请求头中提取 Bearer 令牌 (形如 "Bearer <token>")
+		parts := strings.SplitN(authHeader, " ", 2) // 按空格分割字符串，最多分割为 2 部分
 		if len(parts) != 2 || parts[0] != "Bearer" {
 			errors.InvalidRequest("Invalid authorization header format").JSON(c)
-			c.Abort()
+			c.Abort() // 终止请求处理流程
 			return
 		}
 
 		apiKey := parts[1]
 
 		// Check API key (with Redis cache)
-		keyHash := hashAPIKey(apiKey)
+		keyHash := hashAPIKey(apiKey) // 计算 API 密钥的哈希值
 		keyInfo, err := checkAPIKey(c.Request.Context(), redisClient, keyHash)
 		if err != nil {
 			errors.InternalError("Internal server error").JSON(c)
@@ -65,15 +65,15 @@ func APIKeyAuth(redisClient *storage.RedisClient) gin.HandlerFunc {
 }
 
 func hashAPIKey(apiKey string) string {
-	hash := sha256.Sum256([]byte(apiKey))
-	return hex.EncodeToString(hash[:])
+	hash := sha256.Sum256([]byte(apiKey)) // 计算 API 密钥的 SHA-256 哈希值 , sum256 返回一个 32 字节的数组
+	return hex.EncodeToString(hash[:])    // 将哈希值转换为十六进制字符串并返回
 }
 
 func checkAPIKey(ctx context.Context, redisClient *storage.RedisClient, keyHash string) (map[string]string, error) {
 	cacheKey := "api_key:" + keyHash
 
 	// Try Redis cache first
-	cached, err := redisClient.HGetAll(ctx, cacheKey)
+	cached, err := redisClient.HGetAll(ctx, cacheKey) // 从 Redis 缓存中获取 API 密钥的详细信息 ctx 是请求上下文，用于取消操作
 	if err == nil && len(cached) > 0 {
 		return cached, nil
 	}
@@ -108,5 +108,5 @@ func Logger() gin.HandlerFunc {
 
 // Recovery middleware
 func Recovery() gin.HandlerFunc {
-	return gin.Recovery()
+	return gin.Recovery() //gin 自带的恢复中间件，用于处理panic
 }
