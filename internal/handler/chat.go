@@ -31,7 +31,7 @@ func ChatCompletion(cfg *config.Config, redisClient *storage.RedisClient) gin.Ha
 			return
 		}
 
-		// Check L1 cache 查L1缓存
+		// 检查缓存是否开启
 		if cfg.Cache.Enabled {
 			cacheKey := generateCacheKey(req)
 			if cached, err := redisClient.HGet(c.Request.Context(), "cache:l1", cacheKey); err == nil && cached != "" { //内存使用更高效 可以方便地批量操作相关的缓存项
