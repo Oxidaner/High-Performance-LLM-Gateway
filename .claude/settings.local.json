@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "Bash(git push:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(clawhub search \"self-improving-agent\")",
+      "Bash(npm i -g:*)",
+      "Bash(clawhub install:*)",
+      "WebSearch",
+      "Bash(gh search repos:*)",
+      "Bash(go build ./...)"
+    ]
+  }
+}

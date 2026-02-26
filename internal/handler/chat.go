@@ -9,57 +9,80 @@ import (
 	"time"
 
 	"llm-gateway/internal/config"
+	"llm-gateway/internal/service/cache"
 	"llm-gateway/internal/storage"
 	"llm-gateway/pkg/errors"
 
 	"github.com/gin-gonic/gin"
 )
 
-// ChatCompletion handles chat completion requests 处理聊天完成请求
-func ChatCompletion(cfg *config.Config, redisClient *storage.RedisClient) gin.HandlerFunc {
+// ChatCompletion handles chat completion requests with L1/L2 caching
+func ChatCompletion(cfg *config.Config, redisClient *storage.RedisClient, l1Cache *cache.L1Cache, l2Cache *cache.L2Cache) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Parse request 解析请求
+		// Parse request
 		var req ChatCompletionRequest
-		if err := c.ShouldBindJSON(&req); err != nil { // 绑定JSON请求体到req结构体
+		if err := c.ShouldBindJSON(&req); err != nil {
 			errors.InvalidRequest(err.Error()).JSON(c)
 			return
 		}
 
-		// Validate request 验证请求
+		// Validate request
 		if err := validateChatRequest(req); err != nil {
 			errors.InvalidRequest(err.Error()).JSON(c)
 			return
 		}
 
-		// 检查缓存是否开启
-		if cfg.Cache.Enabled {
-			cacheKey := generateCacheKey(req)
-			if cached, err := redisClient.HGet(c.Request.Context(), "cache:l1", cacheKey); err == nil && cached != "" { //内存使用更高效 可以方便地批量操作相关的缓存项
-				// Cache hit - return cached response // 缓存命中 - 返回缓存响应
-				var resp ChatCompletionResponse
-				if err := json.Unmarshal([]byte(cached), &resp); err == nil { // 解析缓存数据到resp结构体
-					if req.Stream { // 如果请求流模式
-						handleStreamingResponse(c, &resp) // 处理流式响应 模拟流式响应 保护用户体验
+		ctx := c.Request.Context()
+
+		// ===== L1 精确缓存 =====
+		if cfg.Cache.Enabled && l1Cache != nil {
+			// Build params for cache key
+			params := map[string]interface{}{
+				"temperature": req.Temperature,
+				"max_tokens":  req.MaxTokens,
+				"top_p":       req.TopP,
+				"stop":        req.Stop,
+			}
+			cacheKey := cache.GenerateCacheKey(req.Model, toCacheMessages(req.Messages), params)
+
+			// L1 cache lookup
+			if cached, err := l1Cache.Get(ctx, cacheKey); err == nil && cached != nil {
+				if data, err := cache.UnmarshalChatResponse(cached); err == nil {
+					if req.Stream {
+						handleStreamingResponse(c, toChatResponse(data))
 					} else {
-						c.JSON(http.StatusOK, resp) // 处理非流式响应
+						c.JSON(http.StatusOK, toChatResponse(data))
 					}
 					return
 				}
 			}
 		}
 
-		// Forward to LLM provider 转发到LLM提供程序
+		// ===== L2 语义缓存 =====
+		// Note: L2 requires embedding calculation, implemented separately
+		// For now, skip L2 and go directly to provider
+
+		// ===== Forward to LLM provider =====
 		resp, err := forwardToProvider(c, cfg, req)
 		if err != nil {
 			errors.InternalError(err.Error()).JSON(c)
 			return
 		}
 
-		// Cache response
-		if cfg.Cache.Enabled {
-			cacheKey := generateCacheKey(req)
-			if data, err := json.Marshal(resp); err == nil {
-				redisClient.HSet(c.Request.Context(), "cache:l1", cacheKey, string(data))
+		// ===== Cache response =====
+		if cfg.Cache.Enabled && l1Cache != nil {
+			params := map[string]interface{}{
+				"temperature": req.Temperature,
+				"max_tokens":  req.MaxTokens,
+				"top_p":       req.TopP,
+				"stop":        req.Stop,
+			}
+			cacheKey := cache.GenerateCacheKey(req.Model, toCacheMessages(req.Messages), params)
+
+			// Convert to cache response
+			cacheResp := toCacheResponse(resp)
+			if data, err := cacheResp.Marshal(); err == nil {
+				l1Cache.Set(ctx, cacheKey, data)
 			}
 		}
 
@@ -72,7 +95,7 @@ func ChatCompletion(cfg *config.Config, redisClient *storage.RedisClient) gin.Ha
 	}
 }
 
-// ChatCompletionRequest represents the OpenAI chat completion request  表示OpenAI聊天完成请求
+// ChatCompletionRequest represents the OpenAI chat completion request
 type ChatCompletionRequest struct {
 	Model       string        `json:"model"`
 	Messages    []ChatMessage `json:"messages"`
@@ -124,12 +147,6 @@ func validateChatRequest(req ChatCompletionRequest) error {
 	return nil
 }
 
-func generateCacheKey(req ChatCompletionRequest) string {
-	// Simple hash based on model + first message content 基于模型 + 第一条消息内容 生成缓存键
-	data := fmt.Sprintf("%s:%s", req.Model, req.Messages[0].Content)
-	return fmt.Sprintf("%x", []byte(data))
-}
-
 func forwardToProvider(c *gin.Context, cfg *config.Config, req ChatCompletionRequest) (*ChatCompletionResponse, error) {
 	// Find provider configuration
 	var providerCfg config.ProviderConfig
@@ -177,40 +194,113 @@ func forwardToProvider(c *gin.Context, cfg *config.Config, req ChatCompletionReq
 
 func getProvider(model string) string {
 	// Simple provider detection
-	if model == "gpt-4" || model == "gpt-3.5-turbo" {
+	if model == "gpt-4" || model == "gpt-3.5-turbo" || model == "gpt-4o" || model == "gpt-4o-mini" {
 		return "openai"
 	}
-	if model == "claude-3-haiku" || model == "claude-3-sonnet" {
+	if model == "claude-3-haiku" || model == "claude-3-sonnet" || model == "claude-3-opus" {
 		return "anthropic"
+	}
+	if model == "abab6.5s-chat" || model == "abab6.5g-chat" {
+		return "minimax"
 	}
 	return "openai"
 }
 
 func handleStreamingResponse(c *gin.Context, resp *ChatCompletionResponse) {
-	c.Header("Content-Type", "text/event-stream; charset=utf-8") // 设置内容类型为事件流
-	c.Header("Cache-Control", "no-cache")                        // 禁用缓存
-	c.Header("Connection", "keep-alive")                         // 保持连接_alive
+	c.Header("Content-Type", "text/event-stream; charset=utf-8")
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Connection", "keep-alive")
 
-	// Simulate streaming by sending chunks 模拟流式响应，按指定大小发送数据块
-	content := resp.Choices[0].Message.Content // 获取响应内容
+	// Simulate streaming by sending chunks
+	content := resp.Choices[0].Message.Content
 	chunkSize := 20
 	for i := 0; i < len(content); i += chunkSize {
 		end := i + chunkSize
 		if end > len(content) {
 			end = len(content)
 		}
-		chunk := content[i:end] // 提取当前数据块
+		chunk := content[i:end]
 
-		c.SSEvent("message", gin.H{ // 发送事件流消息
+		c.SSEvent("message", gin.H{
 			"choices": []gin.H{
 				{
 					"delta": gin.H{"content": chunk},
 				},
 			},
 		})
-		c.Writer.Flush()                  // 刷新响应缓冲区，确保客户端立即接收数据
-		time.Sleep(10 * time.Millisecond) // 模拟延迟，实际应用中可根据需要调整
+		c.Writer.Flush()
+		time.Sleep(10 * time.Millisecond)
 	}
 
-	c.SSEvent("done", nil) // 发送完成事件流消息
+	c.SSEvent("done", nil)
+}
+
+// Helper functions for cache conversion
+
+func toCacheMessages(msgs []ChatMessage) []cache.Message {
+	result := make([]cache.Message, len(msgs))
+	for i, msg := range msgs {
+		result[i] = cache.Message{
+			Role:    msg.Role,
+			Content: msg.Content,
+			Name:    msg.Name,
+		}
+	}
+	return result
+}
+
+func toCacheResponse(resp *ChatCompletionResponse) *cache.ChatResponse {
+	choices := make([]cache.Choice, len(resp.Choices))
+	for i, c := range resp.Choices {
+		choices[i] = cache.Choice{
+			Index:        c.Index,
+			Message:      cache.Message{
+				Role:    c.Message.Role,
+				Content: c.Message.Content,
+				Name:    c.Message.Name,
+			},
+			FinishReason: c.FinishReason,
+		}
+	}
+
+	return &cache.ChatResponse{
+		ID:      resp.ID,
+		Object:  resp.Object,
+		Created: resp.Created,
+		Model:   resp.Model,
+		Choices: choices,
+		Usage: cache.Usage{
+			PromptTokens:     resp.Usage.PromptTokens,
+			CompletionTokens: resp.Usage.CompletionTokens,
+			TotalTokens:     resp.Usage.TotalTokens,
+		},
+	}
+}
+
+func toChatResponse(resp *cache.ChatResponse) *ChatCompletionResponse {
+	choices := make([]Choice, len(resp.Choices))
+	for i, c := range resp.Choices {
+		choices[i] = Choice{
+			Index: c.Index,
+			Message: ChatMessage{
+				Role:    c.Message.Role,
+				Content: c.Message.Content,
+				Name:    c.Message.Name,
+			},
+			FinishReason: c.FinishReason,
+		}
+	}
+
+	return &ChatCompletionResponse{
+		ID:      resp.ID,
+		Object:  resp.Object,
+		Created: resp.Created,
+		Model:   resp.Model,
+		Choices: choices,
+		Usage: Usage{
+			PromptTokens:     resp.Usage.PromptTokens,
+			CompletionTokens: resp.Usage.CompletionTokens,
+			TotalTokens:     resp.Usage.TotalTokens,
+		},
+	}
 }

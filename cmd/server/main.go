@@ -13,6 +13,7 @@ import (
 	"llm-gateway/internal/config"
 	"llm-gateway/internal/handler"
 	"llm-gateway/internal/middleware"
+	"llm-gateway/internal/service/cache"
 	"llm-gateway/internal/storage"
 
 	"github.com/gin-gonic/gin"
@@ -96,6 +97,37 @@ func main() {
 		defer postgresClient.Close()
 	}
 
+	// Initialize caches
+	var l1Cache *cache.L1Cache
+	var l2Cache *cache.L2Cache
+
+	if redisClient != nil && cfg.Cache.Enabled {
+		redis := redisClient.Client()
+
+		// Initialize L1 cache
+		l1Cache = cache.NewL1Cache(redis, cache.L1CacheConfig{
+			Enabled:   cfg.Cache.Enabled,
+			TTL:       cfg.Cache.L1TTL,
+			MaxSize:   int64(cfg.Cache.MaxCacheSize),
+			KeyPrefix: "cache:l1",
+		})
+
+		// Initialize L2 cache (semantic cache)
+		l2Cache = cache.NewL2Cache(redis, cache.L2CacheConfig{
+			Enabled:            cfg.Cache.Enabled,
+			SimilarityThreshold: cfg.Cache.SimilarityThreshold,
+			TTL:               cfg.Cache.TTL,
+			MaxSize:           int64(cfg.Cache.MaxCacheSize),
+			KeyPrefix:         "cache:l2",
+			VectorDim:         384, // default for all-MiniLM-L6-v2
+		})
+
+		middleware.Info("Cache initialized",
+			middleware.String("l1_ttl", fmt.Sprintf("%ds", cfg.Cache.L1TTL)),
+			middleware.String("l2_similarity", fmt.Sprintf("%.2f", cfg.Cache.SimilarityThreshold)),
+		)
+	}
+
 	// Set Gin mode
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
@@ -158,7 +190,7 @@ func main() {
 		v1.POST("/chat/completions",
 			middleware.APIKeyAuth(redisClient),
 			middleware.RateLimit(cfg.RateLimit),
-			handler.ChatCompletion(cfg, redisClient),
+			handler.ChatCompletion(cfg, redisClient, l1Cache, l2Cache),
 		)
 
 		// Embeddings
