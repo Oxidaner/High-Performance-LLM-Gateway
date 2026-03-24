@@ -90,9 +90,26 @@ func (e GatewayError) ToErrorResponse() ErrorResponse {
 
 // HTTPStatus returns the HTTP status code for the error
 func (e GatewayError) HTTPStatus() int {
-	switch e.Type {
-	case ErrTypeInvalidRequestError, ErrTypeInvalidAPIKey:
+	switch e.Code {
+	case ErrCodeInvalidAPIKey, ErrCodeKeyExpired, ErrCodeMissingAPIKey:
+		return http.StatusUnauthorized
+	case ErrCodeKeyDisabled, ErrCodePermissionDenied:
+		return http.StatusForbidden
+	case ErrCodeRateLimitExceeded, ErrCodeQuotaExceeded:
+		return http.StatusTooManyRequests
+	case ErrCodeMaxTokensExceeded, ErrCodeRequestTooLarge, ErrCodeInvalidRequest, ErrCodeInvalidModel, ErrCodeInvalidParameters:
 		return http.StatusBadRequest
+	case ErrCodeBadGateway:
+		return http.StatusBadGateway
+	case ErrCodeModelOverloaded, ErrCodeModelNotAvailable, ErrCodeServiceUnavailable, ErrCodeCircuitOpen:
+		return http.StatusServiceUnavailable
+	}
+
+	switch e.Type {
+	case ErrTypeInvalidRequestError:
+		return http.StatusBadRequest
+	case ErrTypeInvalidAPIKey:
+		return http.StatusUnauthorized
 	case ErrTypePermissionError:
 		return http.StatusForbidden
 	case ErrTypeRateLimitError:
@@ -111,6 +128,11 @@ func (e GatewayError) HTTPStatus() int {
 // InvalidAPIKey returns an invalid API key error
 func InvalidAPIKey(message string) GatewayError {
 	return NewError(message, ErrTypeInvalidAPIKey, ErrCodeInvalidAPIKey)
+}
+
+// MissingAPIKey returns a missing API key error
+func MissingAPIKey(message string) GatewayError {
+	return NewError(message, ErrTypeInvalidAPIKey, ErrCodeMissingAPIKey)
 }
 
 // KeyExpired returns a key expired error

@@ -1,90 +1,94 @@
-# High-Performance LLM Gateway 规格说明书
+﻿> Status Note (2026-03-24)
+> This SPEC is a historical design reference and is not the source of truth for shipped features.
+> Current implementation status is maintained in `README.md` and `docs/Todo.md`.
+> Phase 6 Agent/RAG tasks remain de-prioritized unless explicitly re-scoped.
+# High-Performance LLM Gateway 瑙勬牸璇存槑涔?
 
-## 1. 项目概述
+## 1. 椤圭洰姒傝堪
 
-### 1.1 项目简介
-企业级高性能 LLM 网关 + AI Agent 平台，支持多模型统一接入、分层缓存、Token 限流、Agent 推理和 RAG 企业知识库问答。
+### 1.1 椤圭洰绠€浠?
+浼佷笟绾ч珮鎬ц兘 LLM 缃戝叧 + AI Agent 骞冲彴锛屾敮鎸佸妯″瀷缁熶竴鎺ュ叆銆佸垎灞傜紦瀛樸€乀oken 闄愭祦銆丄gent 鎺ㄧ悊鍜?RAG 浼佷笟鐭ヨ瘑搴撻棶绛斻€?
 
-### 1.2 项目定位
-- **项目类型**: 个人项目 / Side Project
-- **部署方式**: Kubernetes
-- **技术栈**: Go (API 网关) + Python (AI 任务处理)
+### 1.2 椤圭洰瀹氫綅
+- **椤圭洰绫诲瀷**: 涓汉椤圭洰 / Side Project
+- **閮ㄧ讲鏂瑰紡**: Kubernetes
+- **鎶€鏈爤**: Go (API 缃戝叧) + Python (AI 浠诲姟澶勭悊)
 
-### 1.3 核心特性
-| 特性 | 描述 | 预期收益 |
+### 1.3 鏍稿績鐗规€?
+| 鐗规€?| 鎻忚堪 | 棰勬湡鏀剁泭 |
 |------|------|---------|
-| **LLM 网关** | OpenAI/Claude/MiniMax 多提供商统一接入 | 统一API、供应商解耦 |
-| **分层缓存** | L1精确缓存 + L2语义缓存 (Redis Vector) | 降低 API 成本 40% |
-| **Token 限流** | 令牌桶算法，TikToken 精确计算 | 10k+ QPS 稳定运行 |
-| **AI Agent** | ReAct/CoT 推理引擎 + 工具调用 | 多步推理、自主决策 |
-| **RAG** | 文档上传 → 向量化 → 向量检索 → LLM生成 | 企业知识库问答 |
-| **智能重试** | 指数退避 + 可重试错误码识别 | 请求成功率提升 |
-| **Prompt 优化** | 系统提示词缓存 + 历史消息压缩 | Token 消耗降低 |
-| **调用链观测** | OpenTelemetry/Jaeger 全链路追踪 | 问题快速定位 |
+| **LLM 缃戝叧** | OpenAI/Claude/MiniMax 澶氭彁渚涘晢缁熶竴鎺ュ叆 | 缁熶竴API銆佷緵搴斿晢瑙ｈ€?|
+| **鍒嗗眰缂撳瓨** | L1绮剧‘缂撳瓨 + L2璇箟缂撳瓨 (Redis Vector) | 闄嶄綆 API 鎴愭湰 40% |
+| **Token 闄愭祦** | 浠ょ墝妗剁畻娉曪紝TikToken 绮剧‘璁＄畻 | 10k+ QPS 绋冲畾杩愯 |
+| **AI Agent** | ReAct/CoT 鎺ㄧ悊寮曟搸 + 宸ュ叿璋冪敤 | 澶氭鎺ㄧ悊銆佽嚜涓诲喅绛?|
+| **RAG** | 鏂囨。涓婁紶 鈫?鍚戦噺鍖?鈫?鍚戦噺妫€绱?鈫?LLM鐢熸垚 | 浼佷笟鐭ヨ瘑搴撻棶绛?|
+| **鏅鸿兘閲嶈瘯** | 鎸囨暟閫€閬?+ 鍙噸璇曢敊璇爜璇嗗埆 | 璇锋眰鎴愬姛鐜囨彁鍗?|
+| **Prompt 浼樺寲** | 绯荤粺鎻愮ず璇嶇紦瀛?+ 鍘嗗彶娑堟伅鍘嬬缉 | Token 娑堣€楅檷浣?|
+| **璋冪敤閾捐娴?* | OpenTelemetry/Jaeger 鍏ㄩ摼璺拷韪?| 闂蹇€熷畾浣?|
 
-### 1.4 性能目标
-| 指标 | 目标 |
+### 1.4 鎬ц兘鐩爣
+| 鎸囨爣 | 鐩爣 |
 |------|------|
-| 吞吐量 | 10,000+ QPS |
-| P99 延迟 | < 500ms |
-| 可用性 | 99.9% |
-| LLM 调用成功率 | > 99.5% |
+| 鍚炲悙閲?| 10,000+ QPS |
+| P99 寤惰繜 | < 500ms |
+| 鍙敤鎬?| 99.9% |
+| LLM 璋冪敤鎴愬姛鐜?| > 99.5% |
 
 ---
 
-## 2. 功能需求
+## 2. 鍔熻兘闇€姹?
 
-### 2.1 LLM 提供商集成
+### 2.1 LLM 鎻愪緵鍟嗛泦鎴?
 
-| 提供商             | 支持状态 | 优先级 |
+| 鎻愪緵鍟?            | 鏀寔鐘舵€?| 浼樺厛绾?|
 | ------------------ | -------- | ------ |
-| OpenAI (GPT-4/3.5) | ✅ 支持   | P0     |
-| Claude (Anthropic) | ✅ 支持   | P0     |
-| minimax            | ✅ 支持   | P1     |
+| OpenAI (GPT-4/3.5) | 鉁?鏀寔   | P0     |
+| Claude (Anthropic) | 鉁?鏀寔   | P0     |
+| minimax            | 鉁?鏀寔   | P1     |
 
-#### 2.1.1 接口统一封装
-- 统一请求/响应格式
-- 错误码标准化
-- 支持流式输出 (SSE)
+#### 2.1.1 鎺ュ彛缁熶竴灏佽
+- 缁熶竴璇锋眰/鍝嶅簲鏍煎紡
+- 閿欒鐮佹爣鍑嗗寲
+- 鏀寔娴佸紡杈撳嚭 (SSE)
 
-### 2.2 分层缓存系统
+### 2.2 鍒嗗眰缂撳瓨绯荤粺
 
-> ⚠️ **性能优化**: 采用 L1 + L2 分层缓存，避免每次请求都走 Embedding 计算
+> 鈿狅笍 **鎬ц兘浼樺寲**: 閲囩敤 L1 + L2 鍒嗗眰缂撳瓨锛岄伩鍏嶆瘡娆¤姹傞兘璧?Embedding 璁＄畻
 
-#### 2.2.1 分层缓存架构
+#### 2.2.1 鍒嗗眰缂撳瓨鏋舵瀯
 
-| 层级   | 缓存类型 | 实现方式                   | 延迟       | 命中率预估 |
+| 灞傜骇   | 缂撳瓨绫诲瀷 | 瀹炵幇鏂瑰紡                   | 寤惰繜       | 鍛戒腑鐜囬浼?|
 | ------ | -------- | -------------------------- | ---------- | ---------- |
-| **L1** | 精确缓存 | Redis Hash (SHA256 prompt) | < 1ms      | 60-80%     |
-| **L2** | 语义缓存 | Redis Vector (FT.SEARCH)   | 10-50ms    | 10-20%     |
-| **L0** | 无缓存   | 直连 LLM                   | 500-3000ms | -          |
+| **L1** | 绮剧‘缂撳瓨 | Redis Hash (SHA256 prompt) | < 1ms      | 60-80%     |
+| **L2** | 璇箟缂撳瓨 | Redis Vector (FT.SEARCH)   | 10-50ms    | 10-20%     |
+| **L0** | 鏃犵紦瀛?  | 鐩磋繛 LLM                   | 500-3000ms | -          |
 
-#### 2.2.2 L1 精确缓存
-- **缓存键**: `SHA256(prompt + model + temperature)`
-- **用途**: 拦截高频重复请求 (如轮询场景、相同 Prompt)
-- **特点**: 微秒级查询，无需调用 Python Worker
+#### 2.2.2 L1 绮剧‘缂撳瓨
+- **缂撳瓨閿?*: `SHA256(prompt + model + temperature)`
+- **鐢ㄩ€?*: 鎷︽埅楂橀閲嶅璇锋眰 (濡傝疆璇㈠満鏅€佺浉鍚?Prompt)
+- **鐗圭偣**: 寰绾ф煡璇紝鏃犻渶璋冪敤 Python Worker
 
-#### 2.2.3 L2 语义缓存
-- **向量模型**: text-embedding-ada-002 / text-embedding-3-small
-- **相似度阈值**: > 0.95
-- **用途**: 处理语义相似但文本不同的请求
+#### 2.2.3 L2 璇箟缂撳瓨
+- **鍚戦噺妯″瀷**: text-embedding-ada-002 / text-embedding-3-small
+- **鐩镐技搴﹂槇鍊?*: > 0.95
+- **鐢ㄩ€?*: 澶勭悊璇箟鐩镐技浣嗘枃鏈笉鍚岀殑璇锋眰
 
-#### 2.2.4 缓存流程 (优化后)
+#### 2.2.4 缂撳瓨娴佺▼ (浼樺寲鍚?
 ```mermaid
 flowchart TD
-    Start["请求文本"] --> L1["L1 精确缓存<br/>Hash(prompt) Redis"]
-    L1 -->|命中| L1_Hit["直接返回<br/>< 1ms"]
-    L1 -->|未命中| L2["L2 语义缓存<br/>Python Worker Embedding"]
-    L2 --> Vector["Redis FT.SEARCH<br/>向量相似度"]
-    Vector -->|相似度 > 0.95| L2_Hit["返回缓存<br/>10-50ms"]
-    Vector -->|未命中| Token["Token 计算<br/>Go 内置 TikToken"]
-    Token --> Rate["令牌桶限流"]
-    Rate -->|通过| LLM["调用 LLM"]
-    Rate -->|拒绝| Reject["HTTP 429"]
+    Start["璇锋眰鏂囨湰"] --> L1["L1 绮剧‘缂撳瓨<br/>Hash(prompt) Redis"]
+    L1 -->|鍛戒腑| L1_Hit["鐩存帴杩斿洖<br/>< 1ms"]
+    L1 -->|鏈懡涓瓅 L2["L2 璇箟缂撳瓨<br/>Python Worker Embedding"]
+    L2 --> Vector["Redis FT.SEARCH<br/>鍚戦噺鐩镐技搴?]
+    Vector -->|鐩镐技搴?> 0.95| L2_Hit["杩斿洖缂撳瓨<br/>10-50ms"]
+    Vector -->|鏈懡涓瓅 Token["Token 璁＄畻<br/>Go 鍐呯疆 TikToken"]
+    Token --> Rate["浠ょ墝妗堕檺娴?]
+    Rate -->|閫氳繃| LLM["璋冪敤 LLM"]
+    Rate -->|鎷掔粷| Reject["HTTP 429"]
     
-    L1_Hit -.->|缓存内容| Client
-    L2_Hit -.->|缓存内容| Client
-    LLM -.->|响应| Client
+    L1_Hit -.->|缂撳瓨鍐呭| Client
+    L2_Hit -.->|缂撳瓨鍐呭| Client
+    LLM -.->|鍝嶅簲| Client
     
     style L1 fill:#c8e6c9,stroke:#2e7d32
     style L2 fill:#fff9c4,stroke:#f57f17
@@ -92,40 +96,40 @@ flowchart TD
     style LLM fill:#ffccbc,stroke:#d84315
 ```
 
-> **面试话术**: "我采用了分层缓存策略，L1 使用 Hash 实现微秒级精确匹配，拦截 80% 的高频重复请求；L2 处理语义相似请求。这样避免每次都进行 Embedding 计算，降低了 P95 延迟。"
+> **闈㈣瘯璇濇湳**: "鎴戦噰鐢ㄤ簡鍒嗗眰缂撳瓨绛栫暐锛孡1 浣跨敤 Hash 瀹炵幇寰绾х簿纭尮閰嶏紝鎷︽埅 80% 鐨勯珮棰戦噸澶嶈姹傦紱L2 澶勭悊璇箟鐩镐技璇锋眰銆傝繖鏍烽伩鍏嶆瘡娆￠兘杩涜 Embedding 璁＄畻锛岄檷浣庝簡 P95 寤惰繜銆?
 
-#### 2.2.5 缓存命中时的流式处理
-| 场景               | 处理方式                                                     |
+#### 2.2.5 缂撳瓨鍛戒腑鏃剁殑娴佸紡澶勭悊
+| 鍦烘櫙               | 澶勭悊鏂瑰紡                                                     |
 | ------------------ | ------------------------------------------------------------ |
-| 非流式请求命中缓存 | 直接返回完整响应                                             |
-| 流式请求命中缓存   | **模拟 SSE 流式行为**，将完整文本拆分为 chunk 发送 (用户体验一致) |
-| 流式切分策略       | 按句子/段落切分，每 20-50 字符一个 chunk，模拟真实 LLM 流式输出 |
+| 闈炴祦寮忚姹傚懡涓紦瀛?| 鐩存帴杩斿洖瀹屾暣鍝嶅簲                                             |
+| 娴佸紡璇锋眰鍛戒腑缂撳瓨   | **妯℃嫙 SSE 娴佸紡琛屼负**锛屽皢瀹屾暣鏂囨湰鎷嗗垎涓?chunk 鍙戦€?(鐢ㄦ埛浣撻獙涓€鑷? |
+| 娴佸紡鍒囧垎绛栫暐       | 鎸夊彞瀛?娈佃惤鍒囧垎锛屾瘡 20-50 瀛楃涓€涓?chunk锛屾ā鎷熺湡瀹?LLM 娴佸紡杈撳嚭 |
 
-#### 2.2.6 缓存配置
-| 参数                 | 默认值  | 说明                          |
+#### 2.2.6 缂撳瓨閰嶇疆
+| 鍙傛暟                 | 榛樿鍊? | 璇存槑                          |
 | -------------------- | ------- | ----------------------------- |
-| l1_enabled           | true    | L1 精确缓存开关               |
-| l2_enabled           | true    | L2 语义缓存开关               |
-| l1_ttl               | 1 hour  | L1 缓存过期时间 (短,高频数据) |
-| l2_ttl               | 7 days  | L2 缓存过期时间               |
-| similarity_threshold | 0.95    | L2 相似度阈值                 |
-| max_cache_size       | 100,000 | 最大缓存条目                  |
+| l1_enabled           | true    | L1 绮剧‘缂撳瓨寮€鍏?              |
+| l2_enabled           | true    | L2 璇箟缂撳瓨寮€鍏?              |
+| l1_ttl               | 1 hour  | L1 缂撳瓨杩囨湡鏃堕棿 (鐭?楂橀鏁版嵁) |
+| l2_ttl               | 7 days  | L2 缂撳瓨杩囨湡鏃堕棿               |
+| similarity_threshold | 0.95    | L2 鐩镐技搴﹂槇鍊?                |
+| max_cache_size       | 100,000 | 鏈€澶х紦瀛樻潯鐩?                 |
 
-### 2.3 多模型负载均衡
+### 2.3 澶氭ā鍨嬭礋杞藉潎琛?
 
-#### 2.3.1 路由策略
-- **主要策略**: 加权轮询 (Weighted Round Robin)
-- **权重配置**: 按模型/提供商配置
-- **故障转移**: 自动熔断 + 降级
+#### 2.3.1 璺敱绛栫暐
+- **涓昏绛栫暐**: 鍔犳潈杞 (Weighted Round Robin)
+- **鏉冮噸閰嶇疆**: 鎸夋ā鍨?鎻愪緵鍟嗛厤缃?
+- **鏁呴殰杞Щ**: 鑷姩鐔旀柇 + 闄嶇骇
 
-#### 2.3.2 熔断降级
-| 状态          | 处理策略           |
+#### 2.3.2 鐔旀柇闄嶇骇
+| 鐘舵€?         | 澶勭悊绛栫暐           |
 | ------------- | ------------------ |
-| 连续 3 次失败 | 熔断 30 秒         |
-| 熔断期间      | 自动切换到备用模型 |
-| 恢复检测      | 成功后自动恢复     |
+| 杩炵画 3 娆″け璐?| 鐔旀柇 30 绉?        |
+| 鐔旀柇鏈熼棿      | 鑷姩鍒囨崲鍒板鐢ㄦā鍨?|
+| 鎭㈠妫€娴?     | 鎴愬姛鍚庤嚜鍔ㄦ仮澶?    |
 
-#### 2.3.3 模型配置示例
+#### 2.3.3 妯″瀷閰嶇疆绀轰緥
 ```yaml
 models:
   - name: gpt-4
@@ -143,70 +147,70 @@ models:
     weight: 2
 ```
 
-### 2.4 Token 精确流控
+### 2.4 Token 绮剧‘娴佹帶
 
-#### 2.4.1 限流算法
-- **算法**: 令牌桶 (Token Bucket)
-- **Token 计算**: Go 网关层内置 TikToken，**避免 RPC 调用**
-  - **OpenAI 模型**: `pkoukk/tiktoken-go` 精确计算 (< 1ms)
-  - **非 OpenAI 模型**: 字符数 × 系数估算 (Trade-off)
-- **粒度**: 全局限流 + 按模型限流 + 按 API Key 限流
+#### 2.4.1 闄愭祦绠楁硶
+- **绠楁硶**: 浠ょ墝妗?(Token Bucket)
+- **Token 璁＄畻**: Go 缃戝叧灞傚唴缃?TikToken锛?*閬垮厤 RPC 璋冪敤**
+  - **OpenAI 妯″瀷**: `pkoukk/tiktoken-go` 绮剧‘璁＄畻 (< 1ms)
+  - **闈?OpenAI 妯″瀷**: 瀛楃鏁?脳 绯绘暟浼扮畻 (Trade-off)
+- **绮掑害**: 鍏ㄥ眬闄愭祦 + 鎸夋ā鍨嬮檺娴?+ 鎸?API Key 闄愭祦
 
-#### 2.4.2 Tokenizer 配置 (Go 内置)
-> ⚠️ **性能优化**: Token 计算在 Go 进程内完成，避免每次请求都跨进程调用 Python
+#### 2.4.2 Tokenizer 閰嶇疆 (Go 鍐呯疆)
+> 鈿狅笍 **鎬ц兘浼樺寲**: Token 璁＄畻鍦?Go 杩涚▼鍐呭畬鎴愶紝閬垮厤姣忔璇锋眰閮借法杩涚▼璋冪敤 Python
 
-| 模型类型           | Tokenizer        | 计算方式 | 精度 |
+| 妯″瀷绫诲瀷           | Tokenizer        | 璁＄畻鏂瑰紡 | 绮惧害 |
 | ------------------ | ---------------- | -------- | ---- |
-| OpenAI (GPT-4/3.5) | tiktoken-go (Go) | 精确计算 | ±2%  |
-| Claude (Anthropic) | 字符数 × 0.75    | 估算     | ±10% |
-| 通义千问/MiniMax   | 字符数 × 0.6     | 估算     | ±15% |
+| OpenAI (GPT-4/3.5) | tiktoken-go (Go) | 绮剧‘璁＄畻 | 卤2%  |
+| Claude (Anthropic) | 瀛楃鏁?脳 0.75    | 浼扮畻     | 卤10% |
+| 閫氫箟鍗冮棶/MiniMax   | 瀛楃鏁?脳 0.6     | 浼扮畻     | 卤15% |
 
-> **面试话术**: "为了保证 10k QPS 的性能目标，Token 计算在 Go 网关层直接完成，使用 TikToken 的 Go 移植版本。对于非 OpenAI 模型采用字符数估算，这是一个典型的工程 Trade-off。"
+> **闈㈣瘯璇濇湳**: "涓轰簡淇濊瘉 10k QPS 鐨勬€ц兘鐩爣锛孴oken 璁＄畻鍦?Go 缃戝叧灞傜洿鎺ュ畬鎴愶紝浣跨敤 TikToken 鐨?Go 绉绘鐗堟湰銆傚浜庨潪 OpenAI 妯″瀷閲囩敤瀛楃鏁颁及绠楋紝杩欐槸涓€涓吀鍨嬬殑宸ョ▼ Trade-off銆?
 
-#### 2.4.3 限流流程
+#### 2.4.3 闄愭祦娴佺▼
 ```
-请求 → Go Gateway (内置 TikToken)
-        │
-        ▼
-   Token 计算 (< 1ms)
-        │
-        ▼
-   令牌桶检查 (限流/拦截)
-        │
-        ▼
-   上下文长度检查 (max_tokens > model.max_context?)
-        │
-        ├─ 超长 → HTTP 400 返回
-        │
-        └─ 正常 → 转发 LLM
+璇锋眰 鈫?Go Gateway (鍐呯疆 TikToken)
+        鈹?
+        鈻?
+   Token 璁＄畻 (< 1ms)
+        鈹?
+        鈻?
+   浠ょ墝妗舵鏌?(闄愭祦/鎷︽埅)
+        鈹?
+        鈻?
+   涓婁笅鏂囬暱搴︽鏌?(max_tokens > model.max_context?)
+        鈹?
+        鈹溾攢 瓒呴暱 鈫?HTTP 400 杩斿洖
+        鈹?
+        鈹斺攢 姝ｅ父 鈫?杞彂 LLM
 ```
 
-#### 2.4.3 限流配置
-| 参数        | 默认值     | 说明             |
+#### 2.4.3 闄愭祦閰嶇疆
+| 鍙傛暟        | 榛樿鍊?    | 璇存槑             |
 | ----------- | ---------- | ---------------- |
-| global_rate | 10,000 QPS | 全局 QPS 限制    |
-| model_rate  | 5,000 QPS  | 单模型 QPS 限制  |
-| burst_size  | 500        | 突发容量         |
-| max_tokens  | 128,000    | 单请求最大 token |
+| global_rate | 10,000 QPS | 鍏ㄥ眬 QPS 闄愬埗    |
+| model_rate  | 5,000 QPS  | 鍗曟ā鍨?QPS 闄愬埗  |
+| burst_size  | 500        | 绐佸彂瀹归噺         |
+| max_tokens  | 128,000    | 鍗曡姹傛渶澶?token |
 
-#### 2.4.4 长文本保护与上下文截断
-> ⚠️ **网关层前置拦截**: 在网关层检测并拒绝超长请求，节省 Token 成本
+#### 2.4.4 闀挎枃鏈繚鎶や笌涓婁笅鏂囨埅鏂?
+> 鈿狅笍 **缃戝叧灞傚墠缃嫤鎴?*: 鍦ㄧ綉鍏冲眰妫€娴嬪苟鎷掔粷瓒呴暱璇锋眰锛岃妭鐪?Token 鎴愭湰
 
-- **前置检查**: Go Gateway 内置 TikToken 计算请求 token 数 (< 1ms)
-- **超长拦截**: 请求 token > 模型 max_context 时，**网关直接返回错误**，不调用 LLM
-- **错误响应**: 返回 OpenAI 兼容格式的 error message
-- **拦截收益**: 避免浪费用户配额 + 节省 LLM API 成本
+- **鍓嶇疆妫€鏌?*: Go Gateway 鍐呯疆 TikToken 璁＄畻璇锋眰 token 鏁?(< 1ms)
+- **瓒呴暱鎷︽埅**: 璇锋眰 token > 妯″瀷 max_context 鏃讹紝**缃戝叧鐩存帴杩斿洖閿欒**锛屼笉璋冪敤 LLM
+- **閿欒鍝嶅簲**: 杩斿洖 OpenAI 鍏煎鏍煎紡鐨?error message
+- **鎷︽埅鏀剁泭**: 閬垮厤娴垂鐢ㄦ埛閰嶉 + 鑺傜渷 LLM API 鎴愭湰
 
-| 场景                    | 处理方式                         |
+| 鍦烘櫙                    | 澶勭悊鏂瑰紡                         |
 | ----------------------- | -------------------------------- |
 | token > max_context     | HTTP 400 + "max_tokens exceeded" |
-| token > 128k (绝对上限) | HTTP 400 + "request too large"   |
-| 正常请求                | 放行至 LLM                       |
+| token > 128k (缁濆涓婇檺) | HTTP 400 + "request too large"   |
+| 姝ｅ父璇锋眰                | 鏀捐鑷?LLM                       |
 
-#### 2.4.5 异常处理标准化
-> ⚠️ **统一封装**: 将各供应商的非标准错误转换为 OpenAI 格式
+#### 2.4.5 寮傚父澶勭悊鏍囧噯鍖?
+> 鈿狅笍 **缁熶竴灏佽**: 灏嗗悇渚涘簲鍟嗙殑闈炴爣鍑嗛敊璇浆鎹负 OpenAI 鏍煎紡
 
-| LLM 返回状态码 | 原始错误            | 封装后错误 (OpenAI 格式)                                     |
+| LLM 杩斿洖鐘舵€佺爜 | 鍘熷閿欒            | 灏佽鍚庨敊璇?(OpenAI 鏍煎紡)                                     |
 | -------------- | ------------------- | ------------------------------------------------------------ |
 | 429            | Rate Limit          | `{"error": {"type": "rate_limit_error", "message": "..."}}`  |
 | 500            | Server Error        | `{"error": {"type": "server_error", "message": "..."}}`      |
@@ -214,123 +218,123 @@ models:
 | 403            | Permission Denied   | `{"error": {"type": "permission_error", "message": "..."}}`  |
 | 503            | Service Unavailable | `{"error": {"type": "service_unavailable", "message": "..."}}` |
 
-> **面试点**: 异常标准化是网关的核心价值之一，确保客户端感知一致
+> **闈㈣瘯鐐?*: 寮傚父鏍囧噯鍖栨槸缃戝叧鐨勬牳蹇冧环鍊间箣涓€锛岀‘淇濆鎴风鎰熺煡涓€鑷?
 
-### 2.5 智能重试
+### 2.5 鏅鸿兘閲嶈瘯
 
-> ⚡ **目标**: 提升请求成功率，减少因瞬时故障导致的失败
+> 鈿?**鐩爣**: 鎻愬崌璇锋眰鎴愬姛鐜囷紝鍑忓皯鍥犵灛鏃舵晠闅滃鑷寸殑澶辫触
 
-| 策略 | 描述 | 状态 |
+| 绛栫暐 | 鎻忚堪 | 鐘舵€?|
 |------|------|------|
-| 指数退避 | 重试间隔递增: 1s → 2s → 4s → 8s | 待实现 |
-| 最大重试次数 | 默认 3 次，超过则返回错误 | 待实现 |
-| 可重试错误码 | 429/500/502/503/504 | 待实现 |
-| 熔断期间跳过 | 熔断中的模型直接跳过，不计入重试 | 待实现 |
+| 鎸囨暟閫€閬?| 閲嶈瘯闂撮殧閫掑: 1s 鈫?2s 鈫?4s 鈫?8s | 寰呭疄鐜?|
+| 鏈€澶ч噸璇曟鏁?| 榛樿 3 娆★紝瓒呰繃鍒欒繑鍥為敊璇?| 寰呭疄鐜?|
+| 鍙噸璇曢敊璇爜 | 429/500/502/503/504 | 寰呭疄鐜?|
+| 鐔旀柇鏈熼棿璺宠繃 | 鐔旀柇涓殑妯″瀷鐩存帴璺宠繃锛屼笉璁″叆閲嶈瘯 | 寰呭疄鐜?|
 
 ```mermaid
 flowchart TD
-    Start[请求失败] --> ErrorCode{错误码?}
-    ErrorCode -->|429| RateLimit[触发限流]
-    ErrorCode -->|500/502/503/504| Retry[可重试]
-    ErrorCode -->|401/403| NoRetry[不重试]
+    Start[璇锋眰澶辫触] --> ErrorCode{閿欒鐮?}
+    ErrorCode -->|429| RateLimit[瑙﹀彂闄愭祦]
+    ErrorCode -->|500/502/503/504| Retry[鍙噸璇昡
+    ErrorCode -->|401/403| NoRetry[涓嶉噸璇昡
 
-    Retry --> Backoff[指数退避]
-    Backoff --> Wait[等待]
-    Wait --> TryAgain[重试]
+    Retry --> Backoff[鎸囨暟閫€閬縘
+    Backoff --> Wait[绛夊緟]
+    Wait --> TryAgain[閲嶈瘯]
 
-    TryAgain -->|成功| Success[返回成功]
-    TryAgain -->|失败| Count{重试次数<3?}
-    Count -->|是| Retry
-    Count -->|否| Fail[返回失败]
+    TryAgain -->|鎴愬姛| Success[杩斿洖鎴愬姛]
+    TryAgain -->|澶辫触| Count{閲嶈瘯娆℃暟<3?}
+    Count -->|鏄瘄 Retry
+    Count -->|鍚 Fail[杩斿洖澶辫触]
 ```
 
-### 2.6 Prompt 优化
+### 2.6 Prompt 浼樺寲
 
-> ⚡ **目标**: 减少 Token 消耗，提升响应质量
+> 鈿?**鐩爣**: 鍑忓皯 Token 娑堣€楋紝鎻愬崌鍝嶅簲璐ㄩ噺
 
-| 功能 | 描述 | 状态 |
+| 鍔熻兘 | 鎻忚堪 | 鐘舵€?|
 |------|------|------|
-| 系统提示词缓存 | 相同系统提示词只传输一次 | 待实现 |
-| 历史消息压缩 | 超过 N 条消息时压缩/摘要 | 待实现 |
-| 上下文截断 | 超长上下文自动截断，保留关键信息 | 待实现 |
+| 绯荤粺鎻愮ず璇嶇紦瀛?| 鐩稿悓绯荤粺鎻愮ず璇嶅彧浼犺緭涓€娆?| 寰呭疄鐜?|
+| 鍘嗗彶娑堟伅鍘嬬缉 | 瓒呰繃 N 鏉℃秷鎭椂鍘嬬缉/鎽樿 | 寰呭疄鐜?|
+| 涓婁笅鏂囨埅鏂?| 瓒呴暱涓婁笅鏂囪嚜鍔ㄦ埅鏂紝淇濈暀鍏抽敭淇℃伅 | 寰呭疄鐜?|
 
 ```mermaid
 flowchart LR
-    Input[用户请求] --> Check1{系统提示词缓存?}
-    Check1 -->|命中| Reuse[复用缓存]
-    Check1 -->|未命中| Normal[正常处理]
+    Input[鐢ㄦ埛璇锋眰] --> Check1{绯荤粺鎻愮ず璇嶇紦瀛?}
+    Check1 -->|鍛戒腑| Reuse[澶嶇敤缂撳瓨]
+    Check1 -->|鏈懡涓瓅 Normal[姝ｅ父澶勭悊]
 
-    Check2{历史消息过长?}
+    Check2{鍘嗗彶娑堟伅杩囬暱?}
     Normal --> Check2
-    Check2 -->|是| Compress[压缩/截断]
-    Compress --> Process[处理请求]
-    Check2 -->|否| Process
+    Check2 -->|鏄瘄 Compress[鍘嬬缉/鎴柇]
+    Compress --> Process[澶勭悊璇锋眰]
+    Check2 -->|鍚 Process
 
     Reuse --> Process
 ```
 
-### 2.7 调用链观测
+### 2.7 璋冪敤閾捐娴?
 
-> ⚡ **目标**: 快速定位问题，分析性能瓶颈
+> 鈿?**鐩爣**: 蹇€熷畾浣嶉棶棰橈紝鍒嗘瀽鎬ц兘鐡堕
 
-| 能力 | 描述 | 状态 |
+| 鑳藉姏 | 鎻忚堪 | 鐘舵€?|
 |------|------|------|
-| 全链路追踪 | OpenTelemetry/Jaeger 集成 | 待实现 |
-| 请求标识 | 自动生成 TraceID，透传各服务 | 待实现 |
-| 关键节点埋点 | 缓存命中、LLM调用、Token计算等 | 待实现 |
-| 错误分析 | 记录错误上下文，便于排查 | 待实现 |
+| 鍏ㄩ摼璺拷韪?| OpenTelemetry/Jaeger 闆嗘垚 | 寰呭疄鐜?|
+| 璇锋眰鏍囪瘑 | 鑷姩鐢熸垚 TraceID锛岄€忎紶鍚勬湇鍔?| 寰呭疄鐜?|
+| 鍏抽敭鑺傜偣鍩嬬偣 | 缂撳瓨鍛戒腑銆丩LM璋冪敤銆乀oken璁＄畻绛?| 寰呭疄鐜?|
+| 閿欒鍒嗘瀽 | 璁板綍閿欒涓婁笅鏂囷紝渚夸簬鎺掓煡 | 寰呭疄鐜?|
 
 ```mermaid
 sequenceDiagram
-    participant Client as 客户端
+    participant Client as 瀹㈡埛绔?
     participant Gateway as Go Gateway
     participant Redis as Redis
     participant LLM as LLM
 
     Note over Gateway: TraceID: abc123
     Client->>Gateway: POST /v1/chat/completions
-    Gateway->>Gateway: 生成 TraceID
+    Gateway->>Gateway: 鐢熸垚 TraceID
 
-    Gateway->>Redis: L1 缓存查询
-    Redis-->>Gateway: 未命中
+    Gateway->>Redis: L1 缂撳瓨鏌ヨ
+    Redis-->>Gateway: 鏈懡涓?
     Note over Gateway: span: cache_l1 duration: 0.5ms
 
-    Gateway->>LLM: 调用模型
-    LLM-->>Gateway: 响应
+    Gateway->>LLM: 璋冪敤妯″瀷
+    LLM-->>Gateway: 鍝嶅簲
     Note over Gateway: span: llm_call duration: 1.2s
 
-    Gateway->>Redis: 写入缓存
+    Gateway->>Redis: 鍐欏叆缂撳瓨
     Note over Gateway: span: cache_write duration: 1ms
 
-    Gateway-->>Client: 返回响应
+    Gateway-->>Client: 杩斿洖鍝嶅簲
     Note over Gateway: total_duration: 1.21s
 
-    Gateway->>Jaeger: 上报 Trace
+    Gateway->>Jaeger: 涓婃姤 Trace
 ```
 
-### 2.8 API 接口
+### 2.8 API 鎺ュ彛
 
-#### 2.5.1 对外 API (OpenAI 兼容)
+#### 2.5.1 瀵瑰 API (OpenAI 鍏煎)
 ```
-POST /v1/chat/completions      # 聊天完成
-POST /v1/completions           # 文本完成
-POST /v1/embeddings            # 向量嵌入
-GET  /v1/models                # 模型列表
-```
-
-#### 2.5.2 管理 API
-```
-POST   /api/v1/keys            # 创建 API Key
-GET    /api/v1/keys            # 获取 Key 列表
-DELETE /api/v1/keys/:id        # 删除 Key
-GET    /api/v1/stats           # 流量统计
-POST   /api/v1/models          # 添加模型
-PUT    /api/v1/models/:id      # 更新模型配置
+POST /v1/chat/completions      # 鑱婂ぉ瀹屾垚
+POST /v1/completions           # 鏂囨湰瀹屾垚
+POST /v1/embeddings            # 鍚戦噺宓屽叆
+GET  /v1/models                # 妯″瀷鍒楄〃
 ```
 
-#### 2.5.3 请求示例
+#### 2.5.2 绠＄悊 API
+```
+POST   /api/v1/keys            # 鍒涘缓 API Key
+GET    /api/v1/keys            # 鑾峰彇 Key 鍒楄〃
+DELETE /api/v1/keys/:id        # 鍒犻櫎 Key
+GET    /api/v1/stats           # 娴侀噺缁熻
+POST   /api/v1/models          # 娣诲姞妯″瀷
+PUT    /api/v1/models/:id      # 鏇存柊妯″瀷閰嶇疆
+```
+
+#### 2.5.3 璇锋眰绀轰緥
 ```bash
-# 聊天完成
+# 鑱婂ぉ瀹屾垚
 curl -X POST http://localhost:8080/v1/chat/completions \
   -H "Authorization: Bearer sk-xxxx" \
   -H "Content-Type: application/json" \
@@ -341,7 +345,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
   }'
 ```
 
-#### 2.5.4 错误响应格式 (OpenAI 兼容)
+#### 2.5.4 閿欒鍝嶅簲鏍煎紡 (OpenAI 鍏煎)
 ```json
 {
   "error": {
@@ -352,346 +356,346 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 }
 ```
 
-#### 2.5.5 错误码定义
+#### 2.5.5 閿欒鐮佸畾涔?
 
-##### 通用错误码
-| HTTP 状态码 | error.type            | error.code          | 说明                      | 排查方向             |
+##### 閫氱敤閿欒鐮?
+| HTTP 鐘舵€佺爜 | error.type            | error.code          | 璇存槑                      | 鎺掓煡鏂瑰悜             |
 | ----------- | --------------------- | ------------------- | ------------------------- | -------------------- |
-| 400         | invalid_request_error | max_tokens_exceeded | 请求 token 超过模型上下文 | 检查 max_tokens 参数 |
-| 400         | invalid_request_error | request_too_large   | 请求体过大                | 压缩 prompt          |
-| 401         | invalid_api_key       | invalid_api_key     | API Key 无效              | 检查 Key 是否正确    |
-| 401         | invalid_api_key       | key_expired         | API Key 已过期            | 续期 Key             |
-| 403         | permission_error      | key_disabled        | API Key 已禁用            | 启用 Key             |
-| 429         | rate_limit_error      | rate_limit_exceeded | 触发限流                  | 降低请求频率         |
-| 429         | rate_limit_error      | quota_exceeded      | 配额耗尽                  | 充值/联系管理员      |
-| 500         | server_error          | internal_error      | LLM 服务内部错误          | 重试/切换模型        |
-| 502         | server_error          | bad_gateway         | 模型服务商网关错误        | 切换模型             |
-| 503         | service_unavailable   | model_overloaded    | 模型过载                  | 降级/重试            |
-| 503         | service_unavailable   | model_not_available | 模型暂不可用              | 切换模型             |
+| 400         | invalid_request_error | max_tokens_exceeded | 璇锋眰 token 瓒呰繃妯″瀷涓婁笅鏂?| 妫€鏌?max_tokens 鍙傛暟 |
+| 400         | invalid_request_error | request_too_large   | 璇锋眰浣撹繃澶?               | 鍘嬬缉 prompt          |
+| 401         | invalid_api_key       | invalid_api_key     | API Key 鏃犳晥              | 妫€鏌?Key 鏄惁姝ｇ‘    |
+| 401         | invalid_api_key       | key_expired         | API Key 宸茶繃鏈?           | 缁湡 Key             |
+| 403         | permission_error      | key_disabled        | API Key 宸茬鐢?           | 鍚敤 Key             |
+| 429         | rate_limit_error      | rate_limit_exceeded | 瑙﹀彂闄愭祦                  | 闄嶄綆璇锋眰棰戠巼         |
+| 429         | rate_limit_error      | quota_exceeded      | 閰嶉鑰楀敖                  | 鍏呭€?鑱旂郴绠＄悊鍛?     |
+| 500         | server_error          | internal_error      | LLM 鏈嶅姟鍐呴儴閿欒          | 閲嶈瘯/鍒囨崲妯″瀷        |
+| 502         | server_error          | bad_gateway         | 妯″瀷鏈嶅姟鍟嗙綉鍏抽敊璇?       | 鍒囨崲妯″瀷             |
+| 503         | service_unavailable   | model_overloaded    | 妯″瀷杩囪浇                  | 闄嶇骇/閲嶈瘯            |
+| 503         | service_unavailable   | model_not_available | 妯″瀷鏆備笉鍙敤              | 鍒囨崲妯″瀷             |
 
-##### Agent 错误码
-| HTTP 状态码 | error.type         | error.code       | 说明                     | 排查方向           |
+##### Agent 閿欒鐮?
+| HTTP 鐘舵€佺爜 | error.type         | error.code       | 璇存槑                     | 鎺掓煡鏂瑰悜           |
 | ----------- | ------------------ | ---------------- | ------------------------ | ------------------ |
-| 400         | agent_error        | max_steps_exceeded | 超过最大推理步数        | 简化任务           |
-| 400         | agent_error        | tool_not_found   | 指定的工具不存在          | 检查工具名称       |
-| 400         | agent_error        | tool_timeout     | 工具执行超时              | 检查工具服务       |
-| 400         | agent_error        | loop_detected   | 检测到循环调用            | 任务可能过于复杂   |
-| 400         | agent_error        | invalid_reasoning | 无效的推理结果           | 重试               |
+| 400         | agent_error        | max_steps_exceeded | 瓒呰繃鏈€澶ф帹鐞嗘鏁?       | 绠€鍖栦换鍔?          |
+| 400         | agent_error        | tool_not_found   | 鎸囧畾鐨勫伐鍏蜂笉瀛樺湪          | 妫€鏌ュ伐鍏峰悕绉?      |
+| 400         | agent_error        | tool_timeout     | 宸ュ叿鎵ц瓒呮椂              | 妫€鏌ュ伐鍏锋湇鍔?      |
+| 400         | agent_error        | loop_detected   | 妫€娴嬪埌寰幆璋冪敤            | 浠诲姟鍙兘杩囦簬澶嶆潅   |
+| 400         | agent_error        | invalid_reasoning | 鏃犳晥鐨勬帹鐞嗙粨鏋?          | 閲嶈瘯               |
 
-##### RAG 错误码
-| HTTP 状态码 | error.type         | error.code       | 说明                     | 排查方向           |
+##### RAG 閿欒鐮?
+| HTTP 鐘舵€佺爜 | error.type         | error.code       | 璇存槑                     | 鎺掓煡鏂瑰悜           |
 | ----------- | ------------------ | ---------------- | ------------------------ | ------------------ |
-| 400         | rag_error         | document_too_large | 文档过大                 | 拆分文档           |
-| 400         | rag_error         | unsupported_format | 不支持的文档格式         | 检查文件类型       |
-| 400         | rag_error         | embedding_failed | 向量生成失败             | 检查 Embedding 服务 |
-| 400         | rag_error         | no_results       | 检索无结果               | 调整检索参数       |
-| 400         | rag_error         | low_similarity   | 相似度过低                | 补充更多文档       |
+| 400         | rag_error         | document_too_large | 鏂囨。杩囧ぇ                 | 鎷嗗垎鏂囨。           |
+| 400         | rag_error         | unsupported_format | 涓嶆敮鎸佺殑鏂囨。鏍煎紡         | 妫€鏌ユ枃浠剁被鍨?      |
+| 400         | rag_error         | embedding_failed | 鍚戦噺鐢熸垚澶辫触             | 妫€鏌?Embedding 鏈嶅姟 |
+| 400         | rag_error         | no_results       | 妫€绱㈡棤缁撴灉               | 璋冩暣妫€绱㈠弬鏁?      |
+| 400         | rag_error         | low_similarity   | 鐩镐技搴﹁繃浣?               | 琛ュ厖鏇村鏂囨。       |
 
-##### 智能重试错误码
-| HTTP 状态码 | error.type         | error_code       | 说明                     | 排查方向           |
+##### 鏅鸿兘閲嶈瘯閿欒鐮?
+| HTTP 鐘舵€佺爜 | error.type         | error_code       | 璇存槑                     | 鎺掓煡鏂瑰悜           |
 | ----------- | ------------------ | ---------------- | ------------------------ | ------------------ |
-| 429         | retry_exhausted    | max_retries      | 重试次数已用尽           | 服务暂时不可用     |
-| 504         | gateway_timeout    | retry_timeout    | 重试超时                 | 服务响应慢         |
+| 429         | retry_exhausted    | max_retries      | 閲嶈瘯娆℃暟宸茬敤灏?          | 鏈嶅姟鏆傛椂涓嶅彲鐢?    |
+| 504         | gateway_timeout    | retry_timeout    | 閲嶈瘯瓒呮椂                 | 鏈嶅姟鍝嶅簲鎱?        |
 
-#### 2.5.6 熔断错误处理
-| 状态         | 响应                           | 处理策略               |
+#### 2.5.6 鐔旀柇閿欒澶勭悊
+| 鐘舵€?        | 鍝嶅簲                           | 澶勭悊绛栫暐               |
 | ------------ | ------------------------------ | ---------------------- |
-| 模型熔断中   | 503 + "model_circuit_breaker"  | 自动切换 fallback 模型 |
-| 所有模型熔断 | 503 + "all_models_unavailable" | 返回降级响应           |
+| 妯″瀷鐔旀柇涓?  | 503 + "model_circuit_breaker"  | 鑷姩鍒囨崲 fallback 妯″瀷 |
+| 鎵€鏈夋ā鍨嬬啍鏂?| 503 + "all_models_unavailable" | 杩斿洖闄嶇骇鍝嶅簲           |
 
-### 2.9 认证授权
+### 2.9 璁よ瘉鎺堟潈
 
-#### 2.9.1 认证方式
-- **API Key**: 简单场景
-- **OAuth2**: 企业场景 (可选)
+#### 2.9.1 璁よ瘉鏂瑰紡
+- **API Key**: 绠€鍗曞満鏅?
+- **OAuth2**: 浼佷笟鍦烘櫙 (鍙€?
 
-#### 2.6.2 Key 管理
-- Key 格式: `sk-` 前缀 + 32 位随机字符串
-- 支持设置 Key 有效期
-- 支持设置 Key 速率限制
+#### 2.6.2 Key 绠＄悊
+- Key 鏍煎紡: `sk-` 鍓嶇紑 + 32 浣嶉殢鏈哄瓧绗︿覆
+- 鏀寔璁剧疆 Key 鏈夋晥鏈?
+- 鏀寔璁剧疆 Key 閫熺巼闄愬埗
 
-#### 2.6.3 配置热更新机制
-> ⚠️ **轻量化方案**: K8s ConfigMap + fsnotify 热更新，无需额外中间件
+#### 2.6.3 閰嶇疆鐑洿鏂版満鍒?
+> 鈿狅笍 **杞婚噺鍖栨柟妗?*: K8s ConfigMap + fsnotify 鐑洿鏂帮紝鏃犻渶棰濆涓棿浠?
 
-| 配置项       | 热更新方式                  | 生效时间      |
+| 閰嶇疆椤?      | 鐑洿鏂版柟寮?                 | 鐢熸晥鏃堕棿      |
 | ------------ | --------------------------- | ------------- |
-| 模型权重     | fsnotify 监听 + 内存 reload | < 1s          |
-| 限流参数     | fsnotify 监听 + 内存 reload | < 1s          |
-| 缓存阈值     | fsnotify 监听 + 内存 reload | < 1s          |
-| 新增 API Key | DB 写入 + Redis 缓存刷新    | 5s (缓存 TTL) |
+| 妯″瀷鏉冮噸     | fsnotify 鐩戝惉 + 鍐呭瓨 reload | < 1s          |
+| 闄愭祦鍙傛暟     | fsnotify 鐩戝惉 + 鍐呭瓨 reload | < 1s          |
+| 缂撳瓨闃堝€?    | fsnotify 鐩戝惉 + 鍐呭瓨 reload | < 1s          |
+| 鏂板 API Key | DB 鍐欏叆 + Redis 缂撳瓨鍒锋柊    | 5s (缂撳瓨 TTL) |
 
 ```
-K8s ConfigMap 变更
-        │
-        ▼
-   fsnotify 事件触发
-        │
-        ├── reload_models()      → 更新内存中的模型配置
-        ├── reload_ratelimit()   → 重置令牌桶
-        └── reload_cache()       → 更新缓存阈值
+K8s ConfigMap 鍙樻洿
+        鈹?
+        鈻?
+   fsnotify 浜嬩欢瑙﹀彂
+        鈹?
+        鈹溾攢鈹€ reload_models()      鈫?鏇存柊鍐呭瓨涓殑妯″瀷閰嶇疆
+        鈹溾攢鈹€ reload_ratelimit()   鈫?閲嶇疆浠ょ墝妗?
+        鈹斺攢鈹€ reload_cache()       鈫?鏇存柊缂撳瓨闃堝€?
 ```
 
-> **面试话术**: "考虑到个人项目的轻量化需求，我选择了 K8s ConfigMap + fsnotify 的方案。相比 Nacos，这个方案零额外依赖，同时利用 K8s 原生特性，面试时可以展示对 K8s 的理解。"
+> **闈㈣瘯璇濇湳**: "鑰冭檻鍒颁釜浜洪」鐩殑杞婚噺鍖栭渶姹傦紝鎴戦€夋嫨浜?K8s ConfigMap + fsnotify 鐨勬柟妗堛€傜浉姣?Nacos锛岃繖涓柟妗堥浂棰濆渚濊禆锛屽悓鏃跺埄鐢?K8s 鍘熺敓鐗规€э紝闈㈣瘯鏃跺彲浠ュ睍绀哄 K8s 鐨勭悊瑙ｃ€?
 
-### 2.10 Admin 管理后台
+### 2.10 Admin 绠＄悊鍚庡彴
 
-| 模块     | 功能                                 |
+| 妯″潡     | 鍔熻兘                                 |
 | -------- | ------------------------------------ |
-| 仪表盘   | 实时 QPS、延迟、缓存命中率、成本统计 |
-| 模型管理 | 添加/编辑/删除模型，配置权重         |
-| Key 管理 | 创建/禁用/删除 API Key               |
-| 流量分析 | 请求日志、错误统计、趋势图           |
-| 系统配置 | 限流参数、缓存配置、告警阈值         |
+| 浠〃鐩?  | 瀹炴椂 QPS銆佸欢杩熴€佺紦瀛樺懡涓巼銆佹垚鏈粺璁?|
+| 妯″瀷绠＄悊 | 娣诲姞/缂栬緫/鍒犻櫎妯″瀷锛岄厤缃潈閲?        |
+| Key 绠＄悊 | 鍒涘缓/绂佺敤/鍒犻櫎 API Key               |
+| 娴侀噺鍒嗘瀽 | 璇锋眰鏃ュ織銆侀敊璇粺璁°€佽秼鍔垮浘           |
+| 绯荤粺閰嶇疆 | 闄愭祦鍙傛暟銆佺紦瀛橀厤缃€佸憡璀﹂槇鍊?        |
 
 ### 2.11 AI Agent
 
-> ⚡ **架构**: Go 内置 Agent + 预留 Python 扩展接口
-> ⚡ **模式**: 混合模式 - 默认技能集内置 + 动态发现扩展
+> 鈿?**鏋舵瀯**: Go 鍐呯疆 Agent + 棰勭暀 Python 鎵╁睍鎺ュ彛
+> 鈿?**妯″紡**: 娣峰悎妯″紡 - 榛樿鎶€鑳介泦鍐呯疆 + 鍔ㄦ€佸彂鐜版墿灞?
 
-| 能力 | 描述 | 状态 |
+| 鑳藉姏 | 鎻忚堪 | 鐘舵€?|
 |------|------|------|
-| ReAct 推理 | 思考→行动→观察循环 | 待实现 |
-| CoT 推理 | 思维链逐步推理 | 待实现 |
-| 工具调用 | 网络搜索、数据库查询、API调用 | 待实现 |
-| 自主决策 | LLM 自主判断是否调用工具 | 待实现 |
+| ReAct 鎺ㄧ悊 | 鎬濊€冣啋琛屽姩鈫掕瀵熷惊鐜?| 寰呭疄鐜?|
+| CoT 鎺ㄧ悊 | 鎬濈淮閾鹃€愭鎺ㄧ悊 | 寰呭疄鐜?|
+| 宸ュ叿璋冪敤 | 缃戠粶鎼滅储銆佹暟鎹簱鏌ヨ銆丄PI璋冪敤 | 寰呭疄鐜?|
+| 鑷富鍐崇瓥 | LLM 鑷富鍒ゆ柇鏄惁璋冪敤宸ュ叿 | 寰呭疄鐜?|
 
-#### 2.11.1 默认技能集 (内置)
+#### 2.11.1 榛樿鎶€鑳介泦 (鍐呯疆)
 
-内置默认工具，保证核心性能和可靠性：
+鍐呯疆榛樿宸ュ叿锛屼繚璇佹牳蹇冩€ц兘鍜屽彲闈犳€э細
 
-| 工具 | 功能 | 说明 |
+| 宸ュ叿 | 鍔熻兘 | 璇存槑 |
 |------|------|------|
-| `rag_search` | RAG 检索 | 知识库文档检索 |
-| `web_search` | 网络搜索 | 实时信息获取 |
-| `db_query` | 数据库查询 | 结构化数据查询 |
-| `http_call` | API 调用 | 外部 HTTP API |
-| `embedding` | 向量生成 | 复用 /v1/embeddings |
+| `rag_search` | RAG 妫€绱?| 鐭ヨ瘑搴撴枃妗ｆ绱?|
+| `web_search` | 缃戠粶鎼滅储 | 瀹炴椂淇℃伅鑾峰彇 |
+| `db_query` | 鏁版嵁搴撴煡璇?| 缁撴瀯鍖栨暟鎹煡璇?|
+| `http_call` | API 璋冪敤 | 澶栭儴 HTTP API |
+| `embedding` | 鍚戦噺鐢熸垚 | 澶嶇敤 /v1/embeddings |
 
-> ⚠️ **Token 计算器**: 作为内部服务，不暴露给 Agent，仅用于限流/计费
+> 鈿狅笍 **Token 璁＄畻鍣?*: 浣滀负鍐呴儴鏈嶅姟锛屼笉鏆撮湶缁?Agent锛屼粎鐢ㄤ簬闄愭祦/璁¤垂
 
-#### 2.11.2 动态发现接口
+#### 2.11.2 鍔ㄦ€佸彂鐜版帴鍙?
 
-预留扩展能力，支持自定义工具：
+棰勭暀鎵╁睍鑳藉姏锛屾敮鎸佽嚜瀹氫箟宸ュ叿锛?
 
-| 接口 | 方法 | 功能 |
+| 鎺ュ彛 | 鏂规硶 | 鍔熻兘 |
 |------|------|------|
-| `/v1/agent/tools` | GET | 获取可用工具列表 |
-| `/v1/agent/tools/register` | POST | 注册新工具 |
-| `/v1/agent/tools/:name` | DELETE | 删除工具 |
+| `/v1/agent/tools` | GET | 鑾峰彇鍙敤宸ュ叿鍒楄〃 |
+| `/v1/agent/tools/register` | POST | 娉ㄥ唽鏂板伐鍏?|
+| `/v1/agent/tools/:name` | DELETE | 鍒犻櫎宸ュ叿 |
 
-#### 2.11.3 统一 Tool 接口
+#### 2.11.3 缁熶竴 Tool 鎺ュ彛
 
-所有工具（内置/动态）遵循统一接口：
+鎵€鏈夊伐鍏凤紙鍐呯疆/鍔ㄦ€侊級閬靛惊缁熶竴鎺ュ彛锛?
 
 ```go
 type Tool interface {
-    Name() string        // 工具名称
-    Description() string // 工具描述
-    Schema() ToolSchema  // JSON Schema (供 LLM 函数调用)
+    Name() string        // 宸ュ叿鍚嶇О
+    Description() string // 宸ュ叿鎻忚堪
+    Schema() ToolSchema  // JSON Schema (渚?LLM 鍑芥暟璋冪敤)
     Execute(ctx context.Context, params map[string]interface{}) (string, error)
 }
 ```
 
-> 📖 详细接口定义见「13.2.2.3 工具注册与发现」
+> 馃摉 璇︾粏鎺ュ彛瀹氫箟瑙併€?3.2.2.3 宸ュ叿娉ㄥ唽涓庡彂鐜般€?
 
-#### 2.11.4 数据流
+#### 2.11.4 鏁版嵁娴?
 
 ```mermaid
 sequenceDiagram
-    participant Client as 用户
+    participant Client as 鐢ㄦ埛
     participant Gateway as Go Gateway
     participant Agent as AI Agent
-    participant Tools as 工具层
-    participant RAG as RAG检索
+    participant Tools as 宸ュ叿灞?
+    participant RAG as RAG妫€绱?
     participant LLM as LLM
 
     Client->>Gateway: POST /v1/agent/chat
-    Gateway->>Agent: 接收任务
-    Note over Agent: ReAct 推理循环
+    Gateway->>Agent: 鎺ユ敹浠诲姟
+    Note over Agent: ReAct 鎺ㄧ悊寰幆
 
     rect rgb(240, 248, 255)
         Note over Agent: Step 1
-        Agent->>Agent: Thought: 需要检索文档
+        Agent->>Agent: Thought: 闇€瑕佹绱㈡枃妗?
         Agent->>RAG: rag_search
-        RAG-->>Agent: [文档内容]
+        RAG-->>Agent: [鏂囨。鍐呭]
     end
 
     rect rgb(255, 248, 240)
         Note over Agent: Step 2
-        Agent->>Agent: Thought: 需要最新股价
+        Agent->>Agent: Thought: 闇€瑕佹渶鏂拌偂浠?
         Agent->>Tools: web_search
-        Tools-->>Agent: [搜索结果]
+        Tools-->>Agent: [鎼滅储缁撴灉]
     end
 
     rect rgb(240, 255, 248)
         Note over Agent: Step 3
-        Agent->>Agent: Thought: 已有足够信息
-        Agent->>LLM: 综合分析
-        LLM-->>Agent: [分析报告]
+        Agent->>Agent: Thought: 宸叉湁瓒冲淇℃伅
+        Agent->>LLM: 缁煎悎鍒嗘瀽
+        LLM-->>Agent: [鍒嗘瀽鎶ュ憡]
     end
 
-    Agent-->>Gateway: 返回结果
-    Gateway-->>Client: 最终响应
+    Agent-->>Gateway: 杩斿洖缁撴灉
+    Gateway-->>Client: 鏈€缁堝搷搴?
 ```
 
-#### 2.11.5 工具调用流程
+#### 2.11.5 宸ュ叿璋冪敤娴佺▼
 
 ```mermaid
 flowchart TB
-    subgraph Agent["Agent 推理"]
-        Start[用户请求] --> Parse[解析意图]
-        Parse --> Reasoning[ReAct 推理]
-        Reasoning -->|选择工具| ToolCall[调用工具]
-        ToolCall --> Result[获取结果]
-        Result -->|判断是否继续| Continue{继续?}
-        Continue -->|是| Reasoning
-        Continue -->|否| Final[返回结果]
+    subgraph Agent["Agent 鎺ㄧ悊"]
+        Start[鐢ㄦ埛璇锋眰] --> Parse[瑙ｆ瀽鎰忓浘]
+        Parse --> Reasoning[ReAct 鎺ㄧ悊]
+        Reasoning -->|閫夋嫨宸ュ叿| ToolCall[璋冪敤宸ュ叿]
+        ToolCall --> Result[鑾峰彇缁撴灉]
+        Result -->|鍒ゆ柇鏄惁缁х画| Continue{缁х画?}
+        Continue -->|鏄瘄 Reasoning
+        Continue -->|鍚 Final[杩斿洖缁撴灉]
     end
 
-    subgraph Tools["工具集"]
-        Search[网络搜索]
-        DB[数据库查询]
-        API[API调用]
+    subgraph Tools["宸ュ叿闆?]
+        Search[缃戠粶鎼滅储]
+        DB[鏁版嵁搴撴煡璇
+        API[API璋冪敤]
         Embed[Embedding]
     end
 
-    ToolCall -.->|调用| Search
-    ToolCall -.->|调用| DB
-    ToolCall -.->|调用| API
-    ToolCall -.->|调用| Embed
+    ToolCall -.->|璋冪敤| Search
+    ToolCall -.->|璋冪敤| DB
+    ToolCall -.->|璋冪敤| API
+    ToolCall -.->|璋冪敤| Embed
 ```
 
 ### 2.12 RAG
 
-> ⚡ **向量存储**: Redis Stack
+> 鈿?**鍚戦噺瀛樺偍**: Redis Stack
 
-| 功能 | 描述 | 状态 |
+| 鍔熻兘 | 鎻忚堪 | 鐘舵€?|
 |------|------|------|
-| 文档上传 | 支持 TXT、MD、PDF、DOCX | 待实现 |
-| 文本分块 | 滑动窗口 chunk_size=512 | 待实现 |
-| 向量检索 | Redis Vector FT.SEARCH | 待实现 |
-| RAG 问答 | 检索 + LLM 生成 | 待实现 |
+| 鏂囨。涓婁紶 | 鏀寔 TXT銆丮D銆丳DF銆丏OCX | 寰呭疄鐜?|
+| 鏂囨湰鍒嗗潡 | 婊戝姩绐楀彛 chunk_size=512 | 寰呭疄鐜?|
+| 鍚戦噺妫€绱?| Redis Vector FT.SEARCH | 寰呭疄鐜?|
+| RAG 闂瓟 | 妫€绱?+ LLM 鐢熸垚 | 寰呭疄鐜?|
 
-#### 2.12.1 数据流
+#### 2.12.1 鏁版嵁娴?
 
 ```mermaid
 flowchart LR
-    subgraph Ingest["数据导入"]
-        Upload[文档上传] --> Parse[文档解析]
-        Parse --> Chunk[文本分块]
-        Chunk --> Embed[生成向量]
-        Embed --> Store[存入Redis]
+    subgraph Ingest["鏁版嵁瀵煎叆"]
+        Upload[鏂囨。涓婁紶] --> Parse[鏂囨。瑙ｆ瀽]
+        Parse --> Chunk[鏂囨湰鍒嗗潡]
+        Chunk --> Embed[鐢熸垚鍚戦噺]
+        Embed --> Store[瀛樺叆Redis]
     end
 
-    subgraph Query["查询流程"]
-        Question[用户问题] --> Extract[提取关键词]
-        Extract --> QueryEmbed[生成问题向量]
-        QueryEmbed --> Search[向量检索]
-        Search --> Assemble[组装上下文]
-        Assemble --> Generate[LLM生成]
-        Generate --> Response[返回答案]
+    subgraph Query["鏌ヨ娴佺▼"]
+        Question[鐢ㄦ埛闂] --> Extract[鎻愬彇鍏抽敭璇峕
+        Extract --> QueryEmbed[鐢熸垚闂鍚戦噺]
+        QueryEmbed --> Search[鍚戦噺妫€绱
+        Search --> Assemble[缁勮涓婁笅鏂嘳
+        Assemble --> Generate[LLM鐢熸垚]
+        Generate --> Response[杩斿洖绛旀]
     end
 ```
 
-#### 2.12.2 RAG 问答时序
+#### 2.12.2 RAG 闂瓟鏃跺簭
 
 ```mermaid
 sequenceDiagram
-    participant Client as 用户
+    participant Client as 鐢ㄦ埛
     participant Gateway as Go Gateway
     participant Worker as Python Worker
     participant Redis as Redis Stack
     participant LLM as LLM
 
     Client->>Gateway: POST /v1/rag/chat
-    Gateway->>Gateway: 提取问题
+    Gateway->>Gateway: 鎻愬彇闂
 
-    Gateway->>Worker: /embeddings (生成向量)
-    Worker-->>Gateway: [向量]
+    Gateway->>Worker: /embeddings (鐢熸垚鍚戦噺)
+    Worker-->>Gateway: [鍚戦噺]
 
-    Gateway->>Redis: FT.SEARCH 向量检索
-    Redis-->>Gateway: [相似文档]
+    Gateway->>Redis: FT.SEARCH 鍚戦噺妫€绱?
+    Redis-->>Gateway: [鐩镐技鏂囨。]
 
-    Gateway->>Gateway: 组装prompt<br/>"根据文档...<br/>问题: {question}"
+    Gateway->>Gateway: 缁勮prompt<br/>"鏍规嵁鏂囨。...<br/>闂: {question}"
 
-    Gateway->>LLM: 带上下文调用
-    LLM-->>Gateway: [生成答案]
+    Gateway->>LLM: 甯︿笂涓嬫枃璋冪敤
+    LLM-->>Gateway: [鐢熸垚绛旀]
 
     Gateway-->>Client: {"answer": "...", "sources": [...]}
 ```
 
-#### 2.12.3 大文档处理
+#### 2.12.3 澶ф枃妗ｅ鐞?
 
 ```mermaid
 flowchart TB
-    Input[文档输入] --> SizeCheck{文档大小?}
-    SizeCheck -->|<50页| Normal[普通分块<br/>chunk=512, overlap=50]
-    SizeCheck -->|50-200页| Large[大文档分块<br/>chunk=512, overlap=100]
-    SizeCheck -->|>200页| Huge[层级分块<br/>章节→段落]
+    Input[鏂囨。杈撳叆] --> SizeCheck{鏂囨。澶у皬?}
+    SizeCheck -->|<50椤祙 Normal[鏅€氬垎鍧?br/>chunk=512, overlap=50]
+    SizeCheck -->|50-200椤祙 Large[澶ф枃妗ｅ垎鍧?br/>chunk=512, overlap=100]
+    SizeCheck -->|>200椤祙 Huge[灞傜骇鍒嗗潡<br/>绔犺妭鈫掓钀絔
 
-    Normal --> Store[存入向量库]
+    Normal --> Store[瀛樺叆鍚戦噺搴揮
     Large --> Store
     Huge --> Store
 
-    Store --> Query[可查询]
+    Store --> Query[鍙煡璇
 ```
 
 ---
 
-## 3. 技术架构
+## 3. 鎶€鏈灦鏋?
 
-### 3.1 系统架构图
+### 3.1 绯荤粺鏋舵瀯鍥?
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Kubernetes                               │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────────┐
-│  │                    Go Gateway (:8080)                        │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │  │  LLM 网关   │  │  AI Agent   │  │  RAG 引擎          │  │
-│  │  │  路由/限流  │  │  ReAct/CoT  │  │  文档检索          │  │
-│  │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
-│  └────────┬──────────────────────┬──────────────────────┬──────┘
-│           │                      │                      │
-│           ▼                      ▼                      ▼
-│  ┌──────────────┐    ┌──────────────────┐    ┌──────────────┐
-│  │  PostgreSQL  │    │  Python Worker   │    │  Redis Stack │
-│  │  (持久化)     │    │  (独立 Deployment)│    │  (缓存/向量)  │
-│  │  - API Keys  │    │  (:8081)         │    │  - L1/L2缓存 │
-│  │  - RAG文档   │    │  - Embedding     │    │  - 向量索引   │
-│  │  - 请求日志   │    │  - Token 计算   │    │  - RAG存储   │
-│  └──────────────┘    └────────┬─────────┘    └──────────────┘
-│                                │                      │
-│                                └──────────┬───────────┘
-│                                           │
-│                                           ▼
-│                        ┌──────────────────────────────────────┐
-│                        │         LLM Providers                │
-│                        │  ┌────────┐ ┌───────┐ ┌─────────┐  │
-│                        │  │ OpenAI │ │Claude │ │ Minimax │  │
-│                        │  └────────┘ └───────┘ └─────────┘  │
-│                        └──────────────────────────────────────┘
-└─────────────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────────────┐
-│                    监控/日志/配置 (K8s 集群外)                    │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐       │
-│  │Prometheus│  │ Grafana  │  │  Jaeger  │  │K8s CM   │       │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘       │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │                     ELK/EFK (日志收集)                      │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
+鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?                        Kubernetes                               鈹?
+鈹?                                                                鈹?
+鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹? 鈹?                   Go Gateway (:8080)                        鈹?
+鈹? 鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?
+鈹? 鈹? 鈹? LLM 缃戝叧   鈹? 鈹? AI Agent   鈹? 鈹? RAG 寮曟搸          鈹? 鈹?
+鈹? 鈹? 鈹? 璺敱/闄愭祦  鈹? 鈹? ReAct/CoT  鈹? 鈹? 鏂囨。妫€绱?         鈹? 鈹?
+鈹? 鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?
+鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?          鈹?                     鈹?                     鈹?
+鈹?          鈻?                     鈻?                     鈻?
+鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?   鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?   鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹? 鈹? PostgreSQL  鈹?   鈹? Python Worker   鈹?   鈹? Redis Stack 鈹?
+鈹? 鈹? (鎸佷箙鍖?     鈹?   鈹? (鐙珛 Deployment)鈹?   鈹? (缂撳瓨/鍚戦噺)  鈹?
+鈹? 鈹? - API Keys  鈹?   鈹? (:8081)         鈹?   鈹? - L1/L2缂撳瓨 鈹?
+鈹? 鈹? - RAG鏂囨。   鈹?   鈹? - Embedding     鈹?   鈹? - 鍚戦噺绱㈠紩   鈹?
+鈹? 鈹? - 璇锋眰鏃ュ織   鈹?   鈹? - Token 璁＄畻   鈹?   鈹? - RAG瀛樺偍   鈹?
+鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?   鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?   鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?                               鈹?                     鈹?
+鈹?                               鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?                                          鈹?
+鈹?                                          鈻?
+鈹?                       鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?                       鈹?        LLM Providers                鈹?
+鈹?                       鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?
+鈹?                       鈹? 鈹?OpenAI 鈹?鈹侰laude 鈹?鈹?Minimax 鈹? 鈹?
+鈹?                       鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹?鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?
+鈹?                       鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹?                   鐩戞帶/鏃ュ織/閰嶇疆 (K8s 闆嗙兢澶?                    鈹?
+鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?      鈹?
+鈹? 鈹侾rometheus鈹? 鈹?Grafana  鈹? 鈹? Jaeger  鈹? 鈹侹8s CM   鈹?      鈹?
+鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?      鈹?
+鈹?                                                                鈹?
+鈹? 鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?
+鈹? 鈹?                    ELK/EFK (鏃ュ織鏀堕泦)                      鈹? 鈹?
+鈹? 鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹? 鈹?
+鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
 ```
 
 ```mermaid
 flowchart TB
     subgraph K8s["Kubernetes Cluster"]
         subgraph Gateway["Go Gateway (:8080)"]
-            LLM["LLM 网关<br/>路由/限流/鉴权"]
-            Agent["AI Agent<br/>ReAct/CoT推理"]
-            RAG["RAG 引擎<br/>文档检索"]
+            LLM["LLM 缃戝叧<br/>璺敱/闄愭祦/閴存潈"]
+            Agent["AI Agent<br/>ReAct/CoT鎺ㄧ悊"]
+            RAG["RAG 寮曟搸<br/>鏂囨。妫€绱?]
         end
 
         subgraph Worker["Python Worker"]
@@ -699,8 +703,8 @@ flowchart TB
         end
 
         subgraph Data["Data Layer"]
-            Redis["Redis Stack<br/>L1/L2缓存+向量+RAG"]
-            DB["PostgreSQL<br/>API Keys+RAG文档"]
+            Redis["Redis Stack<br/>L1/L2缂撳瓨+鍚戦噺+RAG"]
+            DB["PostgreSQL<br/>API Keys+RAG鏂囨。"]
         end
 
         subgraph LLM["LLM Providers"]
@@ -710,28 +714,28 @@ flowchart TB
         end
     end
 
-    subgraph Monitor["监控/日志"]
+    subgraph Monitor["鐩戞帶/鏃ュ織"]
         Prom["Prometheus"]
         Graf["Grafana"]
-        Jaeger["Jaeger<br/>调用链追踪"]
+        Jaeger["Jaeger<br/>璋冪敤閾捐拷韪?]
     end
 
     Client --> LLM
     Client --> Agent
     Agent --> RAG
 
-    LLM -->|L1/L2缓存| Redis
-    LLM -->|鉴权| DB
+    LLM -->|L1/L2缂撳瓨| Redis
+    LLM -->|閴存潈| DB
 
-    RAG -->|向量检索| Redis
-    RAG -->|文档存储| DB
+    RAG -->|鍚戦噺妫€绱 Redis
+    RAG -->|鏂囨。瀛樺偍| DB
 
     Agent --> P
-    P -->|向量生成| Redis
+    P -->|鍚戦噺鐢熸垚| Redis
 
-    LLM -->|转发| OpenAI
-    LLM -->|转发| Claude
-    LLM -->|转发| MiniMax
+    LLM -->|杞彂| OpenAI
+    LLM -->|杞彂| Claude
+    LLM -->|杞彂| MiniMax
 
     LLM -->|Metrics| Prom
     Prom --> Graf
@@ -744,73 +748,73 @@ flowchart TB
     style Monitor fill:#f3e5f5,stroke:#7b1fa2
 ```
 
-### 3.2 组件职责
+### 3.2 缁勪欢鑱岃矗
 
-#### 3.2.1 Go Gateway (独立 Deployment)
-- HTTP/REST API 服务 (处理 10k QPS)
-- **LLM 网关**: 请求路由与负载均衡、Token 限流、认证授权
-- **AI Agent**: ReAct/CoT 推理引擎、工具注册与调用、自主决策
-- **RAG 引擎**: 文档上传、向量检索、上下文组装
-- **不直接做 Embedding 计算，调用 Python Worker**
+#### 3.2.1 Go Gateway (鐙珛 Deployment)
+- HTTP/REST API 鏈嶅姟 (澶勭悊 10k QPS)
+- **LLM 缃戝叧**: 璇锋眰璺敱涓庤礋杞藉潎琛°€乀oken 闄愭祦銆佽璇佹巿鏉?
+- **AI Agent**: ReAct/CoT 鎺ㄧ悊寮曟搸銆佸伐鍏锋敞鍐屼笌璋冪敤銆佽嚜涓诲喅绛?
+- **RAG 寮曟搸**: 鏂囨。涓婁紶銆佸悜閲忔绱€佷笂涓嬫枃缁勮
+- **涓嶇洿鎺ュ仛 Embedding 璁＄畻锛岃皟鐢?Python Worker**
 
-#### 3.2.2 Python Worker (独立 Deployment)
-> ⚠️ **重要设计决策**: 不使用 Sidecar 模式，独立部署
-> - 原因: Embedding/Token 计算是 CPU 密集型，会抢占 Go Gateway 的 CPU 资源
-> - 部署: 独立 Deployment，通过 Service 内网调用
+#### 3.2.2 Python Worker (鐙珛 Deployment)
+> 鈿狅笍 **閲嶈璁捐鍐崇瓥**: 涓嶄娇鐢?Sidecar 妯″紡锛岀嫭绔嬮儴缃?
+> - 鍘熷洜: Embedding/Token 璁＄畻鏄?CPU 瀵嗛泦鍨嬶紝浼氭姠鍗?Go Gateway 鐨?CPU 璧勬簮
+> - 閮ㄧ讲: 鐙珛 Deployment锛岄€氳繃 Service 鍐呯綉璋冪敤
 
-- 向量 Embedding 生成
-- 复杂 Token 计算 (非 OpenAI 模型)
+- 鍚戦噺 Embedding 鐢熸垚
+- 澶嶆潅 Token 璁＄畻 (闈?OpenAI 妯″瀷)
 
-#### 3.2.2.1 故障降级策略 (优雅降级)
-> ⚠️ **系统韧性**: Python Worker 不是强依赖，是"优化依赖"
+#### 3.2.2.1 鏁呴殰闄嶇骇绛栫暐 (浼橀泤闄嶇骇)
+> 鈿狅笍 **绯荤粺闊ф€?*: Python Worker 涓嶆槸寮轰緷璧栵紝鏄?浼樺寲渚濊禆"
 
-| 故障场景             | 降级策略                       | 影响                         |
+| 鏁呴殰鍦烘櫙             | 闄嶇骇绛栫暐                       | 褰卞搷                         |
 | -------------------- | ------------------------------ | ---------------------------- |
-| Python Worker 不可用 | 跳过 L2 语义缓存，直接透传 LLM | 缓存命中率 ↓，但业务不断     |
-| Embedding 超时 (>5s) | 降级为 L1 精确缓存             | 语义缓存失效，精确缓存仍有效 |
-| Worker OOM/崩溃      | 自动摘除流量，恢复后自动加入   | 短暂影响，后续请求走 LLM     |
+| Python Worker 涓嶅彲鐢?| 璺宠繃 L2 璇箟缂撳瓨锛岀洿鎺ラ€忎紶 LLM | 缂撳瓨鍛戒腑鐜?鈫擄紝浣嗕笟鍔′笉鏂?    |
+| Embedding 瓒呮椂 (>5s) | 闄嶇骇涓?L1 绮剧‘缂撳瓨             | 璇箟缂撳瓨澶辨晥锛岀簿纭紦瀛樹粛鏈夋晥 |
+| Worker OOM/宕╂簝      | 鑷姩鎽橀櫎娴侀噺锛屾仮澶嶅悗鑷姩鍔犲叆   | 鐭殏褰卞搷锛屽悗缁姹傝蛋 LLM     |
 
 ```go
-// Go Gateway 伪代码: 优雅降级
+// Go Gateway 浼唬鐮? 浼橀泤闄嶇骇
 func (g *Gateway) handleCache(ctx context.Context, prompt string) (*CacheResult, error) {
-    // L1 精确缓存 (不依赖 Python)
+    // L1 绮剧‘缂撳瓨 (涓嶄緷璧?Python)
     if result := g.l1Cache.Get(prompt); result != nil {
         return result, nil
     }
     
-    // L2 语义缓存 (依赖 Python Worker)
+    // L2 璇箟缂撳瓨 (渚濊禆 Python Worker)
     embedding, err := g.pythonClient.GetEmbedding(ctx, prompt)
     if err != nil {
-        // 故障降级: 跳过 L2，直接走 LLM
+        // 鏁呴殰闄嶇骇: 璺宠繃 L2锛岀洿鎺ヨ蛋 LLM
         log.Warn("Python Worker unavailable, skipping L2 cache", "error", err)
         return nil, ErrL2CacheMiss
     }
     
-    // ... L2 查找逻辑
+    // ... L2 鏌ユ壘閫昏緫
 }
 
-// Python Worker 健康检查
-// - 定期 ping 检查可用性
-// - 连续 3 次失败则摘除流量
-// - 成功后自动恢复
+// Python Worker 鍋ュ悍妫€鏌?
+// - 瀹氭湡 ping 妫€鏌ュ彲鐢ㄦ€?
+// - 杩炵画 3 娆″け璐ュ垯鎽橀櫎娴侀噺
+// - 鎴愬姛鍚庤嚜鍔ㄦ仮澶?
 ```
 
-> **面试话术**: "考虑到 Python Worker 承载了不稳定的 AI 推理任务，我在 Go 网关层做了优雅降级设计。当 Worker 不可用时，系统会自动降级为'直连模式'，牺牲缓存命中率，但保证核心业务链路不中断。"
+> **闈㈣瘯璇濇湳**: "鑰冭檻鍒?Python Worker 鎵胯浇浜嗕笉绋冲畾鐨?AI 鎺ㄧ悊浠诲姟锛屾垜鍦?Go 缃戝叧灞傚仛浜嗕紭闆呴檷绾ц璁°€傚綋 Worker 涓嶅彲鐢ㄦ椂锛岀郴缁熶細鑷姩闄嶇骇涓?鐩磋繛妯″紡'锛岀壓鐗茬紦瀛樺懡涓巼锛屼絾淇濊瘉鏍稿績涓氬姟閾捐矾涓嶄腑鏂€?
 
-#### 3.2.3 PostgreSQL (持久化存储)
-> ⚠️ **核心数据必须持久化**: Redis 是内存数据库，重启会丢失所有数据
+#### 3.2.3 PostgreSQL (鎸佷箙鍖栧瓨鍌?
+> 鈿狅笍 **鏍稿績鏁版嵁蹇呴』鎸佷箙鍖?*: Redis 鏄唴瀛樻暟鎹簱锛岄噸鍚細涓㈠け鎵€鏈夋暟鎹?
 
-| 表名         | 用途            | 核心字段                                                     |
+| 琛ㄥ悕         | 鐢ㄩ€?           | 鏍稿績瀛楁                                                     |
 | ------------ | --------------- | ------------------------------------------------------------ |
-| api_keys     | API Key 管理    | key, key_hash, name, rate_limit, expires_at, is_active       |
-| models       | 模型配置        | name, provider, weight, fallback, max_context, tokenizer, is_active |
-| request_logs | 请求日志        | key_id, model, tokens, latency, cost, created_at             |
-| knowledge_bases | 知识库管理   | id, name, description, embedding_model                      |
-| rag_documents | RAG 文档存储   | id, kb_id, filename, content, metadata                      |
-| users        | 用户管理 (预留) | email, role, created_at                                      |
+| api_keys     | API Key 绠＄悊    | key, key_hash, name, rate_limit, expires_at, is_active       |
+| models       | 妯″瀷閰嶇疆        | name, provider, weight, fallback, max_context, tokenizer, is_active |
+| request_logs | 璇锋眰鏃ュ織        | key_id, model, tokens, latency, cost, created_at             |
+| knowledge_bases | 鐭ヨ瘑搴撶鐞?  | id, name, description, embedding_model                      |
+| rag_documents | RAG 鏂囨。瀛樺偍   | id, kb_id, filename, content, metadata                      |
+| users        | 鐢ㄦ埛绠＄悊 (棰勭暀) | email, role, created_at                                      |
 
 ```sql
--- API Keys 表
+-- API Keys 琛?
 CREATE TABLE api_keys (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     key_hash VARCHAR(64) NOT NULL UNIQUE,  -- SHA256 hash of API key
@@ -822,7 +826,7 @@ CREATE TABLE api_keys (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- Models 表
+-- Models 琛?
 CREATE TABLE models (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
@@ -835,7 +839,7 @@ CREATE TABLE models (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Request Logs 表 (可按需分表/分区)
+-- Request Logs 琛?(鍙寜闇€鍒嗚〃/鍒嗗尯)
 CREATE TABLE request_logs (
     id BIGSERIAL PRIMARY KEY,
     key_id UUID REFERENCES api_keys(id),
@@ -848,82 +852,82 @@ CREATE TABLE request_logs (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 索引优化 (面试加分项)
-CREATE INDEX idx_api_keys_key_hash ON api_keys(key_hash);           -- API Key 校验加速
-CREATE INDEX idx_api_keys_is_active ON api_keys(is_active);          -- 活跃 Key 查询
-CREATE INDEX idx_request_logs_created_at ON request_logs(created_at); -- 时间范围查询
-CREATE INDEX idx_request_logs_key_id ON request_logs(key_id);       -- 用户维度统计
-CREATE INDEX idx_request_logs_model ON request_logs(model);         -- 模型维度统计
-CREATE INDEX idx_request_logs_status ON request_logs(status);       -- 错误分析
+-- 绱㈠紩浼樺寲 (闈㈣瘯鍔犲垎椤?
+CREATE INDEX idx_api_keys_key_hash ON api_keys(key_hash);           -- API Key 鏍￠獙鍔犻€?
+CREATE INDEX idx_api_keys_is_active ON api_keys(is_active);          -- 娲昏穬 Key 鏌ヨ
+CREATE INDEX idx_request_logs_created_at ON request_logs(created_at); -- 鏃堕棿鑼冨洿鏌ヨ
+CREATE INDEX idx_request_logs_key_id ON request_logs(key_id);       -- 鐢ㄦ埛缁村害缁熻
+CREATE INDEX idx_request_logs_model ON request_logs(model);         -- 妯″瀷缁村害缁熻
+CREATE INDEX idx_request_logs_status ON request_logs(status);       -- 閿欒鍒嗘瀽
 
--- 大表分区 (数据量大时)
+-- 澶ц〃鍒嗗尯 (鏁版嵁閲忓ぇ鏃?
 -- ALTER TABLE request_logs PARTITION BY RANGE (created_at);
 ```
 
 #### 3.2.4 Redis Stack
-- 向量存储与检索 (FT.SEARCH)
-- API 响应缓存 (热点数据)
-- 限流计数器
-- 分布式锁
-- **Key 权限缓存** (加速鉴权，5 分钟 TTL)
+- 鍚戦噺瀛樺偍涓庢绱?(FT.SEARCH)
+- API 鍝嶅簲缂撳瓨 (鐑偣鏁版嵁)
+- 闄愭祦璁℃暟鍣?
+- 鍒嗗竷寮忛攣
+- **Key 鏉冮檺缂撳瓨** (鍔犻€熼壌鏉冿紝5 鍒嗛挓 TTL)
 
-#### 3.2.5 Redis 内存治理
-> ⚠️ **面试加分项**: 防止内存溢出，设置合理的淘汰策略
+#### 3.2.5 Redis 鍐呭瓨娌荤悊
+> 鈿狅笍 **闈㈣瘯鍔犲垎椤?*: 闃叉鍐呭瓨婧㈠嚭锛岃缃悎鐞嗙殑娣樻卑绛栫暐
 
-| 配置项           | 值          | 说明                                     |
+| 閰嶇疆椤?          | 鍊?         | 璇存槑                                     |
 | ---------------- | ----------- | ---------------------------------------- |
-| maxmemory        | 4GB         | 根据业务量调整                           |
-| maxmemory-policy | allkeys-lru | 优先淘汰最近最少使用的 Key               |
-| L1 缓存 TTL      | 1 hour      | 精确缓存时效短，LRU 友好                 |
-| L2 缓存 TTL      | 7 days      | 向量缓存重要，但内存不足时淘汰旧数据合理 |
+| maxmemory        | 4GB         | 鏍规嵁涓氬姟閲忚皟鏁?                          |
+| maxmemory-policy | allkeys-lru | 浼樺厛娣樻卑鏈€杩戞渶灏戜娇鐢ㄧ殑 Key               |
+| L1 缂撳瓨 TTL      | 1 hour      | 绮剧‘缂撳瓨鏃舵晥鐭紝LRU 鍙嬪ソ                 |
+| L2 缂撳瓨 TTL      | 7 days      | 鍚戦噺缂撳瓨閲嶈锛屼絾鍐呭瓨涓嶈冻鏃舵窐姹版棫鏁版嵁鍚堢悊 |
 
 ```bash
-# Redis 配置
+# Redis 閰嶇疆
 redis-server --maxmemory 4gb --maxmemory-policy allkeys-lru
 ```
 
-> **面试话术**: "Redis 内存治理采用 allkeys-lru 策略。L1 精确缓存时效短，适合淘汰；L2 向量缓存虽然重要，但在内存压力下淘汰旧向量是合理的权衡，避免服务崩溃。"
+> **闈㈣瘯璇濇湳**: "Redis 鍐呭瓨娌荤悊閲囩敤 allkeys-lru 绛栫暐銆侺1 绮剧‘缂撳瓨鏃舵晥鐭紝閫傚悎娣樻卑锛汱2 鍚戦噺缂撳瓨铏界劧閲嶈锛屼絾鍦ㄥ唴瀛樺帇鍔涗笅娣樻卑鏃у悜閲忔槸鍚堢悊鐨勬潈琛★紝閬垮厤鏈嶅姟宕╂簝銆?
 
-### 3.3 数据流 (完整链路)
+### 3.3 鏁版嵁娴?(瀹屾暣閾捐矾)
 
 ```
 Client Request
-     │
-     ▼
-┌─────────────┐    ┌─────────────┐    ┌─────────────┐
-│  Auth Check │───▶│ Rate Limit  │───▶│   Router    │
-│ (Redis缓存)  │    │ (令牌桶)    │    │             │
-└─────────────┘    └─────────────┘    └─────────────┘
-                                           │
-                                           ▼
-                             ┌─────────────────────────────┐
-                             │     语义缓存检查             │
-                             │  1. 提取 prompt             │
-                             │  2. 调用 Python Worker      │
-                             │     生成 Embedding          │
-                             │  3. Redis FT.SEARCH         │
-                             │  4. 相似度 > 0.95?          │
-                             └─────────────────────────────┘
-                              │                    │
-                         YES  │                    │  NO
-                              ▼                    ▼
-                    ┌────────────────┐    ┌─────────────────┐
-                    │  命中缓存       │    │  LLM 调用       │
-                    │  (流式模拟)    │    │  (加权轮询)     │
-                    └────────────────┘    └─────────────────┘
-                              │                    │
-                              └────────┬──────────┘
-                                       ▼
-                              ┌─────────────────┐
-                              │  存入向量缓存   │
-                              │  (可选)         │
-                              └─────────────────┘
-                                       │
-                                       ▼
-                              ┌─────────────────┐
-                              │   Response      │
-                              │   to Client     │
-                              └─────────────────┘
+     鈹?
+     鈻?
+鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?   鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?   鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+鈹? Auth Check 鈹傗攢鈹€鈹€鈻垛攤 Rate Limit  鈹傗攢鈹€鈹€鈻垛攤   Router    鈹?
+鈹?(Redis缂撳瓨)  鈹?   鈹?(浠ょ墝妗?    鈹?   鈹?            鈹?
+鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?   鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?   鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                                           鈹?
+                                           鈻?
+                             鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                             鈹?    璇箟缂撳瓨妫€鏌?            鈹?
+                             鈹? 1. 鎻愬彇 prompt             鈹?
+                             鈹? 2. 璋冪敤 Python Worker      鈹?
+                             鈹?    鐢熸垚 Embedding          鈹?
+                             鈹? 3. Redis FT.SEARCH         鈹?
+                             鈹? 4. 鐩镐技搴?> 0.95?          鈹?
+                             鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                              鈹?                   鈹?
+                         YES  鈹?                   鈹? NO
+                              鈻?                   鈻?
+                    鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?   鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                    鈹? 鍛戒腑缂撳瓨       鈹?   鈹? LLM 璋冪敤       鈹?
+                    鈹? (娴佸紡妯℃嫙)    鈹?   鈹? (鍔犳潈杞)     鈹?
+                    鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?   鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                              鈹?                   鈹?
+                              鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                                       鈻?
+                              鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                              鈹? 瀛樺叆鍚戦噺缂撳瓨   鈹?
+                              鈹? (鍙€?         鈹?
+                              鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                                       鈹?
+                                       鈻?
+                              鈹屸攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
+                              鈹?  Response      鈹?
+                              鈹?  to Client     鈹?
+                              鈹斺攢鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹?
 ```
 
 ```mermaid
@@ -941,13 +945,13 @@ sequenceDiagram
     
     Go->>Go: Rate Limit (Token Bucket)
     
-    Note over Go: L1 精确缓存
+    Note over Go: L1 绮剧‘缂撳瓨
     Go->>Redis: HGET cache:l1 {hash(prompt)}
     alt L1 Hit
         Redis-->>Go: Cached Response
         Go-->>Client: Return (fastest)
     else L1 Miss
-        Note over Go: L2 语义缓存
+        Note over Go: L2 璇箟缂撳瓨
         Go->>Python: Get Embedding
         alt Python Available
             Python-->>Go: Embedding Vector
@@ -963,7 +967,7 @@ sequenceDiagram
                 Go-->>Client: Response
             end
         else Python Unavailable
-            Note over Go: 优雅降级
+            Note over Go: 浼橀泤闄嶇骇
             Go->>LLM: Direct Forward
             LLM-->>Go: Response
             Go-->>Client: Response
@@ -971,171 +975,171 @@ sequenceDiagram
     end
 ```
 
-### 3.4 认证流程 (含缓存)
+### 3.4 璁よ瘉娴佺▼ (鍚紦瀛?
 ```
-请求 → Extract API Key → Redis GET(key) → 命中 → 校验权限
-                          │              │
-                          └─ 未命中 ──────▶ PostgreSQL GET
-                                           │
-                                           ▼
-                                      权限校验
-                                           │
-                                           ▼
-                                      存入 Redis (TTL 5min)
+璇锋眰 鈫?Extract API Key 鈫?Redis GET(key) 鈫?鍛戒腑 鈫?鏍￠獙鏉冮檺
+                          鈹?             鈹?
+                          鈹斺攢 鏈懡涓?鈹€鈹€鈹€鈹€鈹€鈹€鈻?PostgreSQL GET
+                                           鈹?
+                                           鈻?
+                                      鏉冮檺鏍￠獙
+                                           鈹?
+                                           鈻?
+                                      瀛樺叆 Redis (TTL 5min)
 ```
 
 ---
 
-## 4. 技术选型
+## 4. 鎶€鏈€夊瀷
 
-### 4.1 核心技术栈
+### 4.1 鏍稿績鎶€鏈爤
 
-| 组件           | 技术              | 版本      | 说明                      |
+| 缁勪欢           | 鎶€鏈?             | 鐗堟湰      | 璇存槑                      |
 | -------------- | ----------------- | --------- | ------------------------- |
-| Gateway        | Go                | 1.21+     | 高性能 HTTP 服务          |
-| AI 任务        | Python            | 3.11+     | Token 计算/Embedding      |
-| **AI Agent**   | **Go 内置**       | -         | **ReAct/CoT 推理**        |
-| **RAG**        | **Redis Stack**   | **7.2+**  | **向量搜索 + 知识库**     |
-| 向量存储       | Redis Stack       | 7.2+      | 向量搜索 + 缓存           |
-| **持久化存储** | **PostgreSQL**    | **15+**   | **API Key/RAG文档/日志** |
-| **配置中心**   | **K8s ConfigMap** | **1.28+** | **配置热更新 (fsnotify)** |
-| 监控           | Prometheus        | 2.45+     | Metrics 采集              |
-| 可视化         | Grafana           | 10.0+     | 监控面板                  |
-| K8s            | Kubernetes        | 1.28+     | 容器编排                  |
+| Gateway        | Go                | 1.21+     | 楂樻€ц兘 HTTP 鏈嶅姟          |
+| AI 浠诲姟        | Python            | 3.11+     | Token 璁＄畻/Embedding      |
+| **AI Agent**   | **Go 鍐呯疆**       | -         | **ReAct/CoT 鎺ㄧ悊**        |
+| **RAG**        | **Redis Stack**   | **7.2+**  | **鍚戦噺鎼滅储 + 鐭ヨ瘑搴?*     |
+| 鍚戦噺瀛樺偍       | Redis Stack       | 7.2+      | 鍚戦噺鎼滅储 + 缂撳瓨           |
+| **鎸佷箙鍖栧瓨鍌?* | **PostgreSQL**    | **15+**   | **API Key/RAG鏂囨。/鏃ュ織** |
+| **閰嶇疆涓績**   | **K8s ConfigMap** | **1.28+** | **閰嶇疆鐑洿鏂?(fsnotify)** |
+| 鐩戞帶           | Prometheus        | 2.45+     | Metrics 閲囬泦              |
+| 鍙鍖?        | Grafana           | 10.0+     | 鐩戞帶闈㈡澘                  |
+| K8s            | Kubernetes        | 1.28+     | 瀹瑰櫒缂栨帓                  |
 
-### 4.2 Go 依赖
-| 包                        | 用途                     |
+### 4.2 Go 渚濊禆
+| 鍖?                       | 鐢ㄩ€?                    |
 | ------------------------- | ------------------------ |
-| gin-gonic/gin             | HTTP 框架                |
-| redis/go-redis/v9         | Redis 客户端             |
-| uber-go/zap               | 日志库                   |
-| uber-go/ratelimit         | 令牌桶限流               |
-| pkoukk/tiktoken-go       | Token 精确计算            |
-| prometheus/client_golang  | 监控                     |
-| lib/pq                   | PostgreSQL 驱动           |
-| godotenv                 | 环境变量加载             |
-| yaml.v3                  | YAML 配置解析            |
-| **opentelemetry-go**     | **调用链追踪**            |
-| **jaeger-client-go**      | **Jaeger 客户端**         |
+| gin-gonic/gin             | HTTP 妗嗘灦                |
+| redis/go-redis/v9         | Redis 瀹㈡埛绔?            |
+| uber-go/zap               | 鏃ュ織搴?                  |
+| uber-go/ratelimit         | 浠ょ墝妗堕檺娴?              |
+| pkoukk/tiktoken-go       | Token 绮剧‘璁＄畻            |
+| prometheus/client_golang  | 鐩戞帶                     |
+| lib/pq                   | PostgreSQL 椹卞姩           |
+| godotenv                 | 鐜鍙橀噺鍔犺浇             |
+| yaml.v3                  | YAML 閰嶇疆瑙ｆ瀽            |
+| **opentelemetry-go**     | **璋冪敤閾捐拷韪?*            |
+| **jaeger-client-go**      | **Jaeger 瀹㈡埛绔?*         |
 
-> 注: Agent、RAG 为项目内部模块，不依赖外部包
+> 娉? Agent銆丷AG 涓洪」鐩唴閮ㄦā鍧楋紝涓嶄緷璧栧閮ㄥ寘
 
-### 4.3 Python 依赖
-| 包                    | 用途                |
+### 4.3 Python 渚濊禆
+| 鍖?                   | 鐢ㄩ€?               |
 | --------------------- | ------------------- |
-| sentence-transformers | 向量 Embedding 生成 |
-| fastapi               | HTTP 服务           |
-| redis                 | Redis 客户端        |
+| sentence-transformers | 鍚戦噺 Embedding 鐢熸垚 |
+| fastapi               | HTTP 鏈嶅姟           |
+| redis                 | Redis 瀹㈡埛绔?       |
 
-### 4.4 代码目录结构
+### 4.4 浠ｇ爜鐩綍缁撴瀯
 
-#### 4.4.1 Go 项目结构
+#### 4.4.1 Go 椤圭洰缁撴瀯
 ```
 llm-gateway/
-├── cmd/
-│   └── server/
-│       └── main.go              # 入口文件
-├── internal/
-│   ├── config/
-│   │   └── config.go            # 配置加载
-│   ├── handler/
-│   │   ├── chat.go              # /v1/chat/completions
-│   │   ├── embedding.go         # /v1/embeddings
-│   │   ├── rag.go               # /v1/rag/* RAG接口
-│   │   ├── agent.go             # /v1/agent/* Agent接口
-│   │   └── admin.go             # /api/v1 管理接口
-│   ├── middleware/
-│   │   ├── auth.go              # API Key 鉴权
-│   │   ├── ratelimit.go         # 令牌桶限流
-│   │   └── logging.go           # 请求日志
-│   ├── agent/                   # AI Agent 模块
-│   │   ├── agent.go             # Agent 核心逻辑
-│   │   ├── react.go             # ReAct 推理引擎
-│   │   ├── cot.go               # CoT 推理引擎
-│   │   ├── tools/                # 工具集
-│   │   │   ├── registry.go      # 工具注册表
-│   │   │   ├── web_search.go   # 网络搜索
-│   │   │   ├── db_query.go     # 数据库查询
-│   │   │   └── api_call.go     # API 调用
-│   │   └── decision.go          # 自主决策
-│   ├── rag/                     # RAG 模块
-│   │   ├── document.go          # 文档处理
-│   │   ├── chunker.go           # 文本分块
-│   │   ├── retriever.go         # 向量检索
-│   │   └── knowledgebase.go     # 知识库管理
-│   ├── service/
-│   │   ├── router.go            # 负载均衡/路由
-│   │   ├── cache/
-│   │   │   ├── l1.go            # L1 精确缓存
-│   │   │   └── l2.go            # L2 语义缓存
-│   │   ├── provider/
-│   │   │   ├── openai.go        # OpenAI 适配器
-│   │   │   ├── anthropic.go     # Claude 适配器
-│   │   │   └── minimax.go       # MiniMax 适配器
-│   │   └── circuitbreaker.go    # 熔断器
-│   ├── tokenizer/
-│   │   └── tiktoken.go          # Go 内置 TikToken
-│   ├── model/
-│   │   └── model.go             # 模型定义
-│   └── storage/
-│       ├── redis.go             # Redis 客户端
-│       └── postgres.go           # PostgreSQL 客户端
-├── pkg/
-│   └── errors/
-│       └── errors.go             # 错误定义
-├── configs/
-│   └── config.yaml              # 配置文件
-├── deployments/
-│   ├── k8s/
-│   │   ├── deployment.yaml       # K8s Deployment
-│   │   ├── service.yaml
-│   │   ├── hpa.yaml
-│   │   └── configmap.yaml       # K8s ConfigMap
-│   └── docker/
-│       └── docker-compose.yaml
-├── scripts/
-│   └── init_db.sql              # 数据库初始化
-├── go.mod
-└── go.sum
+鈹溾攢鈹€ cmd/
+鈹?  鈹斺攢鈹€ server/
+鈹?      鈹斺攢鈹€ main.go              # 鍏ュ彛鏂囦欢
+鈹溾攢鈹€ internal/
+鈹?  鈹溾攢鈹€ config/
+鈹?  鈹?  鈹斺攢鈹€ config.go            # 閰嶇疆鍔犺浇
+鈹?  鈹溾攢鈹€ handler/
+鈹?  鈹?  鈹溾攢鈹€ chat.go              # /v1/chat/completions
+鈹?  鈹?  鈹溾攢鈹€ embedding.go         # /v1/embeddings
+鈹?  鈹?  鈹溾攢鈹€ rag.go               # /v1/rag/* RAG鎺ュ彛
+鈹?  鈹?  鈹溾攢鈹€ agent.go             # /v1/agent/* Agent鎺ュ彛
+鈹?  鈹?  鈹斺攢鈹€ admin.go             # /api/v1 绠＄悊鎺ュ彛
+鈹?  鈹溾攢鈹€ middleware/
+鈹?  鈹?  鈹溾攢鈹€ auth.go              # API Key 閴存潈
+鈹?  鈹?  鈹溾攢鈹€ ratelimit.go         # 浠ょ墝妗堕檺娴?
+鈹?  鈹?  鈹斺攢鈹€ logging.go           # 璇锋眰鏃ュ織
+鈹?  鈹溾攢鈹€ agent/                   # AI Agent 妯″潡
+鈹?  鈹?  鈹溾攢鈹€ agent.go             # Agent 鏍稿績閫昏緫
+鈹?  鈹?  鈹溾攢鈹€ react.go             # ReAct 鎺ㄧ悊寮曟搸
+鈹?  鈹?  鈹溾攢鈹€ cot.go               # CoT 鎺ㄧ悊寮曟搸
+鈹?  鈹?  鈹溾攢鈹€ tools/                # 宸ュ叿闆?
+鈹?  鈹?  鈹?  鈹溾攢鈹€ registry.go      # 宸ュ叿娉ㄥ唽琛?
+鈹?  鈹?  鈹?  鈹溾攢鈹€ web_search.go   # 缃戠粶鎼滅储
+鈹?  鈹?  鈹?  鈹溾攢鈹€ db_query.go     # 鏁版嵁搴撴煡璇?
+鈹?  鈹?  鈹?  鈹斺攢鈹€ api_call.go     # API 璋冪敤
+鈹?  鈹?  鈹斺攢鈹€ decision.go          # 鑷富鍐崇瓥
+鈹?  鈹溾攢鈹€ rag/                     # RAG 妯″潡
+鈹?  鈹?  鈹溾攢鈹€ document.go          # 鏂囨。澶勭悊
+鈹?  鈹?  鈹溾攢鈹€ chunker.go           # 鏂囨湰鍒嗗潡
+鈹?  鈹?  鈹溾攢鈹€ retriever.go         # 鍚戦噺妫€绱?
+鈹?  鈹?  鈹斺攢鈹€ knowledgebase.go     # 鐭ヨ瘑搴撶鐞?
+鈹?  鈹溾攢鈹€ service/
+鈹?  鈹?  鈹溾攢鈹€ router.go            # 璐熻浇鍧囪　/璺敱
+鈹?  鈹?  鈹溾攢鈹€ cache/
+鈹?  鈹?  鈹?  鈹溾攢鈹€ l1.go            # L1 绮剧‘缂撳瓨
+鈹?  鈹?  鈹?  鈹斺攢鈹€ l2.go            # L2 璇箟缂撳瓨
+鈹?  鈹?  鈹溾攢鈹€ provider/
+鈹?  鈹?  鈹?  鈹溾攢鈹€ openai.go        # OpenAI 閫傞厤鍣?
+鈹?  鈹?  鈹?  鈹溾攢鈹€ anthropic.go     # Claude 閫傞厤鍣?
+鈹?  鈹?  鈹?  鈹斺攢鈹€ minimax.go       # MiniMax 閫傞厤鍣?
+鈹?  鈹?  鈹斺攢鈹€ circuitbreaker.go    # 鐔旀柇鍣?
+鈹?  鈹溾攢鈹€ tokenizer/
+鈹?  鈹?  鈹斺攢鈹€ tiktoken.go          # Go 鍐呯疆 TikToken
+鈹?  鈹溾攢鈹€ model/
+鈹?  鈹?  鈹斺攢鈹€ model.go             # 妯″瀷瀹氫箟
+鈹?  鈹斺攢鈹€ storage/
+鈹?      鈹溾攢鈹€ redis.go             # Redis 瀹㈡埛绔?
+鈹?      鈹斺攢鈹€ postgres.go           # PostgreSQL 瀹㈡埛绔?
+鈹溾攢鈹€ pkg/
+鈹?  鈹斺攢鈹€ errors/
+鈹?      鈹斺攢鈹€ errors.go             # 閿欒瀹氫箟
+鈹溾攢鈹€ configs/
+鈹?  鈹斺攢鈹€ config.yaml              # 閰嶇疆鏂囦欢
+鈹溾攢鈹€ deployments/
+鈹?  鈹溾攢鈹€ k8s/
+鈹?  鈹?  鈹溾攢鈹€ deployment.yaml       # K8s Deployment
+鈹?  鈹?  鈹溾攢鈹€ service.yaml
+鈹?  鈹?  鈹溾攢鈹€ hpa.yaml
+鈹?  鈹?  鈹斺攢鈹€ configmap.yaml       # K8s ConfigMap
+鈹?  鈹斺攢鈹€ docker/
+鈹?      鈹斺攢鈹€ docker-compose.yaml
+鈹溾攢鈹€ scripts/
+鈹?  鈹斺攢鈹€ init_db.sql              # 鏁版嵁搴撳垵濮嬪寲
+鈹溾攢鈹€ go.mod
+鈹斺攢鈹€ go.sum
 ```
 
-#### 4.4.2 Python 项目结构
+#### 4.4.2 Python 椤圭洰缁撴瀯
 ```
 llm-worker/
-├── app/
-│   ├── main.py                  # FastAPI 入口
-│   ├── routes/
-│   │   ├── embedding.py         # 向量生成 API
-│   │   └── health.py            # 健康检查
-│   └── services/
-│       └── embedding_service.py # Embedding 逻辑
-├── models/
-│   └── cache.py                 # 模型缓存
-├── configs/
-│   └── config.yaml
-├── requirements.txt
-└── Dockerfile
+鈹溾攢鈹€ app/
+鈹?  鈹溾攢鈹€ main.py                  # FastAPI 鍏ュ彛
+鈹?  鈹溾攢鈹€ routes/
+鈹?  鈹?  鈹溾攢鈹€ embedding.py         # 鍚戦噺鐢熸垚 API
+鈹?  鈹?  鈹斺攢鈹€ health.py            # 鍋ュ悍妫€鏌?
+鈹?  鈹斺攢鈹€ services/
+鈹?      鈹斺攢鈹€ embedding_service.py # Embedding 閫昏緫
+鈹溾攢鈹€ models/
+鈹?  鈹斺攢鈹€ cache.py                 # 妯″瀷缂撳瓨
+鈹溾攢鈹€ configs/
+鈹?  鈹斺攢鈹€ config.yaml
+鈹溾攢鈹€ requirements.txt
+鈹斺攢鈹€ Dockerfile
 ```
 
-> **设计原则**:
-> - `internal/` 对外不可见，只暴露 `handler` 层
-> - `provider` 适配器模式，方便扩展新 LLM
-> - `cache` 分层设计，L1/L2 独立模块
-> - `agent` 模块化设计，推理引擎与工具解耦
-> - `rag` 分层设计，文档处理与检索解耦
+> **璁捐鍘熷垯**:
+> - `internal/` 瀵瑰涓嶅彲瑙侊紝鍙毚闇?`handler` 灞?
+> - `provider` 閫傞厤鍣ㄦā寮忥紝鏂逛究鎵╁睍鏂?LLM
+> - `cache` 鍒嗗眰璁捐锛孡1/L2 鐙珛妯″潡
+> - `agent` 妯″潡鍖栬璁★紝鎺ㄧ悊寮曟搸涓庡伐鍏疯В鑰?
+> - `rag` 鍒嗗眰璁捐锛屾枃妗ｅ鐞嗕笌妫€绱㈣В鑰?
 
 ---
 
-## 5. 配置说明
+## 5. 閰嶇疆璇存槑
 
-### 5.1 配置文件结构
+### 5.1 閰嶇疆鏂囦欢缁撴瀯
 ```yaml
 # config.yaml
 server:
   host: 0.0.0.0
   port: 8080
   
-# PostgreSQL (持久化存储)
+# PostgreSQL (鎸佷箙鍖栧瓨鍌?
 database:
   host: postgres
   port: 5432
@@ -1143,13 +1147,13 @@ database:
   password: ${DB_PASSWORD}
   name: llm_gateway
   
-# Redis (缓存/向量)
+# Redis (缂撳瓨/鍚戦噺)
 redis:
   address: redis-stack:6379
   password: ""
   db: 0
   
-# Python Worker (独立服务)
+# Python Worker (鐙珛鏈嶅姟)
 python_worker:
   address: python-worker:8081
   timeout: 5s
@@ -1173,7 +1177,7 @@ ratelimit:
   global_qps: 10000
   burst: 500
   max_tokens: 128000
-  # 按模型限流配置
+  # 鎸夋ā鍨嬮檺娴侀厤缃?
   model_limits:
     gpt-4: 1000
     gpt-3.5-turbo: 3000
@@ -1185,7 +1189,7 @@ models:
     weight: 5
     fallback: gpt-3.5-turbo
     max_context: 8192
-    tokenizer: tiktoken  # 指定 tokenizer 类型
+    tokenizer: tiktoken  # 鎸囧畾 tokenizer 绫诲瀷
   - name: gpt-3.5-turbo
     provider: openai
     weight: 3
@@ -1195,14 +1199,14 @@ models:
     provider: anthropic
     weight: 2
     max_context: 200000
-    tokenizer: anthropic  # 使用估算方式
+    tokenizer: anthropic  # 浣跨敤浼扮畻鏂瑰紡
     
-# Agent 配置
+# Agent 閰嶇疆
 agent:
   enabled: true
   default_reasoning: react  # react / cot / plan
-  max_steps: 10            # 最大推理步骤
-  timeout: 60s            # Agent 执行超时
+  max_steps: 10            # 鏈€澶ф帹鐞嗘楠?
+  timeout: 60s            # Agent 鎵ц瓒呮椂
   tools:
     - name: web_search
       enabled: true
@@ -1211,7 +1215,7 @@ agent:
       enabled: true
       connection: postgres
 
-# RAG 配置
+# RAG 閰嶇疆
 rag:
   enabled: true
   embedding:
@@ -1224,7 +1228,7 @@ rag:
     top_k: 5
     score_threshold: 0.7
 
-# 智能重试配置
+# 鏅鸿兘閲嶈瘯閰嶇疆
 retry:
   enabled: true
   max_retries: 3
@@ -1237,26 +1241,26 @@ retry:
     - 503
     - 504
 
-# Prompt 优化配置
+# Prompt 浼樺寲閰嶇疆
 prompt:
   system_cache_enabled: true
   history_compress_enabled: true
   max_history_messages: 10
 
-# 配置管理 (轻量化方案)
-# 个人项目推荐: K8s ConfigMap + fsnotify 热更新
+# 閰嶇疆绠＄悊 (杞婚噺鍖栨柟妗?
+# 涓汉椤圭洰鎺ㄨ崘: K8s ConfigMap + fsnotify 鐑洿鏂?
 config:
-  source: k8s_configmap  # 挂载到 /etc/config/config.yaml
+  source: k8s_configmap  # 鎸傝浇鍒?/etc/config/config.yaml
   hot_reload:
     enabled: true
     watch_path: /etc/config/
-    # 使用 fsnotify 监听文件变更
-    debounce: 500ms  # 防抖
+    # 浣跨敤 fsnotify 鐩戝惉鏂囦欢鍙樻洿
+    debounce: 500ms  # 闃叉姈
     on_change:
-      - reload_models      # 重载模型配置
-      - reload_ratelimit   # 重载限流配置
-      - reload_cache       # 重载缓存配置
-  # 示例: K8s ConfigMap
+      - reload_models      # 閲嶈浇妯″瀷閰嶇疆
+      - reload_ratelimit   # 閲嶈浇闄愭祦閰嶇疆
+      - reload_cache       # 閲嶈浇缂撳瓨閰嶇疆
+  # 绀轰緥: K8s ConfigMap
   # kubectl create configmap llm-gateway-config --from-file=config.yaml
 
 monitoring:
@@ -1268,7 +1272,7 @@ monitoring:
     endpoint: http://jaeger:14268/api/traces
 ```
 
-### 5.2 环境变量
+### 5.2 鐜鍙橀噺
 ```bash
 # .env
 OPENAI_API_KEY=sk-xxxx
@@ -1278,18 +1282,18 @@ MINIMAX_API_KEY=xxxx
 REDIS_PASSWORD=
 JWT_SECRET=your-secret-key
 
-# K8s 部署时使用 Secret
+# K8s 閮ㄧ讲鏃朵娇鐢?Secret
 ```
 
 ---
 
-## 6. 部署方案
+## 6. 閮ㄧ讲鏂规
 
-### 6.1 Kubernetes 部署
+### 6.1 Kubernetes 閮ㄧ讲
 
-> ⚠️ **重要设计决策**: Python Worker 独立部署，非 Sidecar 模式
-> - 原因: Embedding 计算是 CPU 密集型，会抢占 Go Gateway 资源，影响 10k QPS 性能
-> - 架构: 两个独立 Deployment，通过 Service 内网调用
+> 鈿狅笍 **閲嶈璁捐鍐崇瓥**: Python Worker 鐙珛閮ㄧ讲锛岄潪 Sidecar 妯″紡
+> - 鍘熷洜: Embedding 璁＄畻鏄?CPU 瀵嗛泦鍨嬶紝浼氭姠鍗?Go Gateway 璧勬簮锛屽奖鍝?10k QPS 鎬ц兘
+> - 鏋舵瀯: 涓や釜鐙珛 Deployment锛岄€氳繃 Service 鍐呯綉璋冪敤
 
 #### 6.1.1 Go Gateway Deployment
 ```yaml
@@ -1315,7 +1319,7 @@ spec:
         resources:
           requests:
             memory: "512Mi"
-            cpu: "1000m"  # 提高 CPU 配额，保障 10k QPS
+            cpu: "1000m"  # 鎻愰珮 CPU 閰嶉锛屼繚闅?10k QPS
           limits:
             memory: "1Gi"
             cpu: "2000m"
@@ -1329,14 +1333,14 @@ spec:
           value: "http://python-worker:8081"
 ```
 
-#### 6.1.2 Python Worker Deployment (独立)
+#### 6.1.2 Python Worker Deployment (鐙珛)
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: python-worker
 spec:
-  replicas: 2  # 少于 Gateway，避免资源争抢
+  replicas: 2  # 灏戜簬 Gateway锛岄伩鍏嶈祫婧愪簤鎶?
   selector:
     matchLabels:
       app: python-worker
@@ -1352,14 +1356,14 @@ spec:
         - containerPort: 8081
         resources:
           requests:
-            memory: "2Gi"   # 大内存，用于向量模型加载
+            memory: "2Gi"   # 澶у唴瀛橈紝鐢ㄤ簬鍚戦噺妯″瀷鍔犺浇
             cpu: "2000m"
           limits:
             memory: "4Gi"
-            cpu: "4000m"   # 高 CPU 配额，用于 Embedding 计算
+            cpu: "4000m"   # 楂?CPU 閰嶉锛岀敤浜?Embedding 璁＄畻
 ```
 
-#### 6.1.3 Service 配置
+#### 6.1.3 Service 閰嶇疆
 ```yaml
 apiVersion: v1
 kind: Service
@@ -1384,10 +1388,10 @@ spec:
   ports:
   - port: 8081
     targetPort: 8081
-  # 仅集群内访问
+  # 浠呴泦缇ゅ唴璁块棶
 ```
 
-#### 6.1.4 HPA 配置
+#### 6.1.4 HPA 閰嶇疆
 
 ##### Gateway HPA
 ```yaml
@@ -1411,7 +1415,7 @@ spec:
         averageUtilization: 70
 ```
 
-##### Python Worker HPA (计算密集型)
+##### Python Worker HPA (璁＄畻瀵嗛泦鍨?
 ```yaml
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
@@ -1430,21 +1434,21 @@ spec:
       name: cpu
       target:
         type: Utilization
-        averageUtilization: 75  # CPU > 75% 自动扩容
+        averageUtilization: 75  # CPU > 75% 鑷姩鎵╁
   - type: Pods
     pods:
       metric:
         name: embedding_queue_length
       target:
         type: AverageValue
-        averageValue: "10"  # 等待队列 > 10 时扩容
+        averageValue: "10"  # 绛夊緟闃熷垪 > 10 鏃舵墿瀹?
 ```
 
-### 6.2 Docker Compose (开发环境)
+### 6.2 Docker Compose (寮€鍙戠幆澧?
 ```yaml
 version: '3.8'
 services:
-  # Go Gateway - 主服务
+  # Go Gateway - 涓绘湇鍔?
   gateway:
     build: ./gateway
     ports:
@@ -1458,7 +1462,7 @@ services:
       - python-worker
       - postgres
   
-  # Python Worker - 独立部署 (非 Sidecar)
+  # Python Worker - 鐙珛閮ㄧ讲 (闈?Sidecar)
   python-worker:
     build: ./python-worker
     ports:
@@ -1471,7 +1475,7 @@ services:
           cpus: '2'
           memory: 4G
   
-  # PostgreSQL - 持久化存储
+  # PostgreSQL - 鎸佷箙鍖栧瓨鍌?
   postgres:
     image: postgres:15
     environment:
@@ -1483,13 +1487,13 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
   
-  # Redis Stack - 向量搜索 + 缓存
+  # Redis Stack - 鍚戦噺鎼滅储 + 缂撳瓨
   redis-stack:
     image: redis/redis-stack:latest
     ports:
       - "6379:6379"
   
-  # 监控组件
+  # 鐩戞帶缁勪欢
   prometheus:
     image: prom/prometheus:latest
     ports:
@@ -1506,83 +1510,83 @@ volumes:
 
 ---
 
-## 7. 监控指标
+## 7. 鐩戞帶鎸囨爣
 
-### 7.1 核心指标
+### 7.1 鏍稿績鎸囨爣
 
-| 指标名                            | 类型      | 描述         |
+| 鎸囨爣鍚?                           | 绫诲瀷      | 鎻忚堪         |
 | --------------------------------- | --------- | ------------ |
-| gateway_requests_total            | Counter   | 总请求数     |
-| gateway_requests_duration_seconds | Histogram | 请求延迟     |
-| gateway_cache_hits_total          | Counter   | 缓存命中数   |
-| gateway_cache_misses_total        | Counter   | 缓存未命中数 |
-| gateway_rate_limit_rejected_total | Counter   | 限流拒绝数   |
-| gateway_model_requests_total      | Counter   | 各模型请求数 |
-| gateway_model_errors_total        | Counter   | 各模型错误数 |
-| gateway_tokens_total              | Counter   | Token 消耗量 |
+| gateway_requests_total            | Counter   | 鎬昏姹傛暟     |
+| gateway_requests_duration_seconds | Histogram | 璇锋眰寤惰繜     |
+| gateway_cache_hits_total          | Counter   | 缂撳瓨鍛戒腑鏁?  |
+| gateway_cache_misses_total        | Counter   | 缂撳瓨鏈懡涓暟 |
+| gateway_rate_limit_rejected_total | Counter   | 闄愭祦鎷掔粷鏁?  |
+| gateway_model_requests_total      | Counter   | 鍚勬ā鍨嬭姹傛暟 |
+| gateway_model_errors_total        | Counter   | 鍚勬ā鍨嬮敊璇暟 |
+| gateway_tokens_total              | Counter   | Token 娑堣€楅噺 |
 
-### 7.2 Agent 指标
+### 7.2 Agent 鎸囨爣
 
-| 指标名                            | 类型      | 描述         |
+| 鎸囨爣鍚?                           | 绫诲瀷      | 鎻忚堪         |
 | --------------------------------- | --------- | ------------ |
-| agent_requests_total              | Counter   | Agent 请求数 |
-| agent_steps_total                 | Counter   | Agent 推理步数 |
-| agent_tool_calls_total            | Counter   | 工具调用次数 |
-| agent_tool_duration_seconds       | Histogram | 工具执行延迟 |
-| agent_retries_total              | Counter   | Agent 重试次数 |
+| agent_requests_total              | Counter   | Agent 璇锋眰鏁?|
+| agent_steps_total                 | Counter   | Agent 鎺ㄧ悊姝ユ暟 |
+| agent_tool_calls_total            | Counter   | 宸ュ叿璋冪敤娆℃暟 |
+| agent_tool_duration_seconds       | Histogram | 宸ュ叿鎵ц寤惰繜 |
+| agent_retries_total              | Counter   | Agent 閲嶈瘯娆℃暟 |
 
-### 7.3 RAG 指标
+### 7.3 RAG 鎸囨爣
 
-| 指标名                            | 类型      | 描述         |
+| 鎸囨爣鍚?                           | 绫诲瀷      | 鎻忚堪         |
 | --------------------------------- | --------- | ------------ |
-| rag_documents_total              | Counter   | RAG 文档数   |
-| rag_chunks_total                 | Counter   | 文档分块数   |
-| rag_retrieval_duration_seconds   | Histogram | 向量检索延迟 |
-| rag_retrieval_hits_total         | Counter   | 检索命中数   |
-| rag_retrieval_misses_total       | Counter   | 检索未命中   |
+| rag_documents_total              | Counter   | RAG 鏂囨。鏁?  |
+| rag_chunks_total                 | Counter   | 鏂囨。鍒嗗潡鏁?  |
+| rag_retrieval_duration_seconds   | Histogram | 鍚戦噺妫€绱㈠欢杩?|
+| rag_retrieval_hits_total         | Counter   | 妫€绱㈠懡涓暟   |
+| rag_retrieval_misses_total       | Counter   | 妫€绱㈡湭鍛戒腑   |
 
-### 7.4 调用链追踪
+### 7.4 璋冪敤閾捐拷韪?
 
-| 指标名                            | 类型      | 描述         |
+| 鎸囨爣鍚?                           | 绫诲瀷      | 鎻忚堪         |
 | --------------------------------- | --------- | ------------ |
-| trace_duration_seconds            | Histogram | 全链路延迟   |
-| span_cache_l1_duration_ms         | Gauge     | L1 缓存延迟  |
-| span_cache_l2_duration_ms        | Gauge     | L2 缓存延迟  |
-| span_llm_duration_seconds        | Gauge     | LLM 调用延迟 |
-| span_embedding_duration_ms        | Gauge     | 向量生成延迟 |
+| trace_duration_seconds            | Histogram | 鍏ㄩ摼璺欢杩?  |
+| span_cache_l1_duration_ms         | Gauge     | L1 缂撳瓨寤惰繜  |
+| span_cache_l2_duration_ms        | Gauge     | L2 缂撳瓨寤惰繜  |
+| span_llm_duration_seconds        | Gauge     | LLM 璋冪敤寤惰繜 |
+| span_embedding_duration_ms        | Gauge     | 鍚戦噺鐢熸垚寤惰繜 |
 
-### 7.5 Grafana 面板
+### 7.5 Grafana 闈㈡澘
 
-#### 7.5.1 仪表盘指标
-- 实时 QPS
-- P50/P95/P99 延迟
-- 缓存命中率
-- 各模型调用占比
-- Token 消耗趋势
-- 成本估算
-- 错误率
+#### 7.5.1 浠〃鐩樻寚鏍?
+- 瀹炴椂 QPS
+- P50/P95/P99 寤惰繜
+- 缂撳瓨鍛戒腑鐜?
+- 鍚勬ā鍨嬭皟鐢ㄥ崰姣?
+- Token 娑堣€楄秼鍔?
+- 鎴愭湰浼扮畻
+- 閿欒鐜?
 
-#### 7.5.2 Agent 面板
-- Agent 请求量
-- 平均推理步数
-- 工具调用分布
-- 工具执行延迟
+#### 7.5.2 Agent 闈㈡澘
+- Agent 璇锋眰閲?
+- 骞冲潎鎺ㄧ悊姝ユ暟
+- 宸ュ叿璋冪敤鍒嗗竷
+- 宸ュ叿鎵ц寤惰繜
 
-#### 7.5.3 RAG 面板
-- 文档数量
-- 向量检索延迟
-- 检索命中率
+#### 7.5.3 RAG 闈㈡澘
+- 鏂囨。鏁伴噺
+- 鍚戦噺妫€绱㈠欢杩?
+- 妫€绱㈠懡涓巼
 
 ---
 
-## 8. API Key 管理
+## 8. API Key 绠＄悊
 
-### 8.1 Key 格式
+### 8.1 Key 鏍煎紡
 ```
-sk-{随机字符串 32 位}
+sk-{闅忔満瀛楃涓?32 浣峿
 ```
 
-### 8.2 Key 属性
+### 8.2 Key 灞炴€?
 ```json
 {
   "id": "key_xxxx",
@@ -1595,41 +1599,41 @@ sk-{随机字符串 32 位}
 }
 ```
 
-### 8.3 权限模型
-- **read**: 查询模型、统计
-- **write**: 创建 Key、修改配置
-- **admin**: 所有权限
+### 8.3 鏉冮檺妯″瀷
+- **read**: 鏌ヨ妯″瀷銆佺粺璁?
+- **write**: 鍒涘缓 Key銆佷慨鏀归厤缃?
+- **admin**: 鎵€鏈夋潈闄?
 
 ---
 
-## 13. AI Agent 功能 (Phase 6)
+## 13. AI Agent 鍔熻兘 (Phase 6)
 
-> ⚡ **架构设计**: Go 内置 Agent + 预留 Python 扩展接口
-> - Agent 作为 RAG 的智能调度层
-> - 支持 ReAct/CoT 多步推理
-> - 工具调用 + 自主决策
+> 鈿?**鏋舵瀯璁捐**: Go 鍐呯疆 Agent + 棰勭暀 Python 鎵╁睍鎺ュ彛
+> - Agent 浣滀负 RAG 鐨勬櫤鑳借皟搴﹀眰
+> - 鏀寔 ReAct/CoT 澶氭鎺ㄧ悊
+> - 宸ュ叿璋冪敤 + 鑷富鍐崇瓥
 
-### 13.1 Agent 核心架构
+### 13.1 Agent 鏍稿績鏋舵瀯
 
 ```mermaid
 flowchart TB
-    subgraph Agent["AI Agent 调度层 (Go Gateway)"]
-        ReAct["ReAct/CoT 推理引擎"]
-        ToolReg["工具注册表"]
-        Decision["自主决策器"]
+    subgraph Agent["AI Agent 璋冨害灞?(Go Gateway)"]
+        ReAct["ReAct/CoT 鎺ㄧ悊寮曟搸"]
+        ToolReg["宸ュ叿娉ㄥ唽琛?]
+        Decision["鑷富鍐崇瓥鍣?]
     end
 
-    subgraph Tools["工具层"]
-        Search["网络搜索"]
-        DB["数据库查询"]
-        API["API 调用"]
-        Embed["Embedding 生成"]
+    subgraph Tools["宸ュ叿灞?]
+        Search["缃戠粶鎼滅储"]
+        DB["鏁版嵁搴撴煡璇?]
+        API["API 璋冪敤"]
+        Embed["Embedding 鐢熸垚"]
     end
 
-    subgraph RAG["RAG 检索层"]
-        DocUpload["文档上传"]
+    subgraph RAG["RAG 妫€绱㈠眰"]
+        DocUpload["鏂囨。涓婁紶"]
         VectorStore["Redis Vector"]
-        Retriever["向量检索"]
+        Retriever["鍚戦噺妫€绱?]
     end
 
     Client --> Agent
@@ -1637,45 +1641,45 @@ flowchart TB
     ReAct --> Decision
     Decision --> Tools
     Decision --> RAG
-    Tools -->|结果| Agent
-    RAG -->|上下文| Agent
-    Agent -->|最终响应| Client
+    Tools -->|缁撴灉| Agent
+    RAG -->|涓婁笅鏂噟 Agent
+    Agent -->|鏈€缁堝搷搴攟 Client
 ```
 
-### 13.2 Agent 能力定义
+### 13.2 Agent 鑳藉姏瀹氫箟
 
-#### 13.2.1 多步推理 (ReAct/CoT)
-| 推理模式 | 描述 | 适用场景 |
+#### 13.2.1 澶氭鎺ㄧ悊 (ReAct/CoT)
+| 鎺ㄧ悊妯″紡 | 鎻忚堪 | 閫傜敤鍦烘櫙 |
 |---------|------|---------|
-| ReAct | 思考(Thought)→行动(Action)→观察(Observation)循环 | 需要外部工具的复杂任务 |
-| Chain-of-Thought | 逐步推理，不调用外部工具 | 数学、逻辑分析 |
-| Plan-and-Execute | 先制定计划，再逐步执行 | 复杂多步骤任务 |
+| ReAct | 鎬濊€?Thought)鈫掕鍔?Action)鈫掕瀵?Observation)寰幆 | 闇€瑕佸閮ㄥ伐鍏风殑澶嶆潅浠诲姟 |
+| Chain-of-Thought | 閫愭鎺ㄧ悊锛屼笉璋冪敤澶栭儴宸ュ叿 | 鏁板銆侀€昏緫鍒嗘瀽 |
+| Plan-and-Execute | 鍏堝埗瀹氳鍒掞紝鍐嶉€愭鎵ц | 澶嶆潅澶氭楠や换鍔?|
 
-#### 13.2.2 工具调用
+#### 13.2.2 宸ュ叿璋冪敤
 
-| 工具 | 功能 | 实现难度 | 预计工时 |
+| 宸ュ叿 | 鍔熻兘 | 瀹炵幇闅惧害 | 棰勮宸ユ椂 |
 |------|------|---------|---------|
-| **网络搜索** | 调用外部搜索引擎获取实时信息 | 中等 | 2天 |
-| **数据库查询** | 执行 SQL 查询返回结构化数据 | 中等 | 2天 |
-| API 调用 | 调用外部 HTTP API | 低 | 1天 |
-| Embedding 生成 | 调用向量生成接口 | 低 | 已实现 |
+| **缃戠粶鎼滅储** | 璋冪敤澶栭儴鎼滅储寮曟搸鑾峰彇瀹炴椂淇℃伅 | 涓瓑 | 2澶?|
+| **鏁版嵁搴撴煡璇?* | 鎵ц SQL 鏌ヨ杩斿洖缁撴瀯鍖栨暟鎹?| 涓瓑 | 2澶?|
+| API 璋冪敤 | 璋冪敤澶栭儴 HTTP API | 浣?| 1澶?|
+| Embedding 鐢熸垚 | 璋冪敤鍚戦噺鐢熸垚鎺ュ彛 | 浣?| 宸插疄鐜?|
 
-#### 13.2.2.1 网络搜索工具 (Web Search)
+#### 13.2.2.1 缃戠粶鎼滅储宸ュ叿 (Web Search)
 
-> ⚡ **演示场景**: "基于上传的财报分析股价走势，同时调用搜索获取最新股价"
+> 鈿?**婕旂ず鍦烘櫙**: "鍩轰簬涓婁紶鐨勮储鎶ュ垎鏋愯偂浠疯蛋鍔匡紝鍚屾椂璋冪敤鎼滅储鑾峰彇鏈€鏂拌偂浠?
 
 ```go
-// 工具定义
+// 宸ュ叿瀹氫箟
 type WebSearchTool struct {
     Name        string `json:"name"`
     Description string `json:"description"`
     Provider    string `json:"provider"` // serpapi / baidu / google
 }
 
-// 工具调用
+// 宸ュ叿璋冪敤
 type SearchRequest struct {
-    Query string `json:"query"` // 搜索关键词
-    Num   int    `json:"num"`  // 返回结果数量，默认5
+    Query string `json:"query"` // 鎼滅储鍏抽敭璇?
+    Num   int    `json:"num"`  // 杩斿洖缁撴灉鏁伴噺锛岄粯璁?
 }
 
 type SearchResult struct {
@@ -1685,96 +1689,96 @@ type SearchResult struct {
 }
 ```
 
-| 配置项 | 值 | 说明 |
+| 閰嶇疆椤?| 鍊?| 璇存槑 |
 |--------|-----|------|
-| provider | serpapi / custom | 搜索服务提供商 |
-| api_key | 环境变量注入 | API 密钥 |
-| timeout | 10s | 请求超时 |
-| default_num | 5 | 默认返回结果数 |
+| provider | serpapi / custom | 鎼滅储鏈嶅姟鎻愪緵鍟?|
+| api_key | 鐜鍙橀噺娉ㄥ叆 | API 瀵嗛挜 |
+| timeout | 10s | 璇锋眰瓒呮椂 |
+| default_num | 5 | 榛樿杩斿洖缁撴灉鏁?|
 
-**调用示例**:
+**璋冪敤绀轰緥**:
 ```bash
-# Agent 推理过程
-Thought: 我需要获取最新股价信息来补充财报分析
+# Agent 鎺ㄧ悊杩囩▼
+Thought: 鎴戦渶瑕佽幏鍙栨渶鏂拌偂浠蜂俊鎭潵琛ュ厖璐㈡姤鍒嗘瀽
 Action: web_search
-Action Input: "AAPL 股票 2026年2月 最新股价"
+Action Input: "AAPL 鑲＄エ 2026骞?鏈?鏈€鏂拌偂浠?
 Observation: {"results": [{"title": "Apple Inc. (AAPL) Stock Price", "price": "$185.50", ...}]}
 ```
 
-#### 13.2.2.2 数据库查询工具 (Database Query)
+#### 13.2.2.2 鏁版嵁搴撴煡璇㈠伐鍏?(Database Query)
 
-> ⚡ **演示场景**: "查询上周 GPT-4 的调用成本 Top3 的 API Key"
+> 鈿?**婕旂ず鍦烘櫙**: "鏌ヨ涓婂懆 GPT-4 鐨勮皟鐢ㄦ垚鏈?Top3 鐨?API Key"
 
 ```go
-// 工具定义
+// 宸ュ叿瀹氫箟
 type DBQueryTool struct {
     Name        string `json:"name"`
     Description string `json:"description"`
     Connection  string `json:"connection"` // postgres
 }
 
-// 预定义查询模板 (安全限制)
+// 棰勫畾涔夋煡璇㈡ā鏉?(瀹夊叏闄愬埗)
 type QueryTemplate struct {
     Name        string `json:"name"`
     Description string `json:"description"`
-    SQL         string `json:"sql"`           // 参数化查询
-    Parameters  []string `json:"parameters"`  // 可用参数
+    SQL         string `json:"sql"`           // 鍙傛暟鍖栨煡璇?
+    Parameters  []string `json:"parameters"`  // 鍙敤鍙傛暟
 }
 
-// 可用查询模板
+// 鍙敤鏌ヨ妯℃澘
 var QueryTemplates = []QueryTemplate{
     {
         Name:        "cost_by_model",
-        Description: "按模型统计调用成本",
+        Description: "鎸夋ā鍨嬬粺璁¤皟鐢ㄦ垚鏈?,
         SQL:         `SELECT model, SUM(cost) as total_cost FROM request_logs WHERE created_at > $1 GROUP BY model ORDER BY total_cost DESC LIMIT $2`,
         Parameters:  []string{"start_time", "limit"},
     },
     {
         Name:        "cost_by_api_key",
-        Description: "按 API Key 统计调用成本",
+        Description: "鎸?API Key 缁熻璋冪敤鎴愭湰",
         SQL:         `SELECT ak.name, SUM(rl.cost) as total_cost FROM request_logs rl JOIN api_keys ak ON rl.key_id = ak.id WHERE rl.created_at > $1 GROUP BY ak.name ORDER BY total_cost DESC LIMIT $2`,
         Parameters:  []string{"start_time", "limit"},
     },
     {
         Name:        "usage_by_model",
-        Description: "按模型统计请求次数",
+        Description: "鎸夋ā鍨嬬粺璁¤姹傛鏁?,
         SQL:         `SELECT model, COUNT(*) as request_count FROM request_logs WHERE created_at > $1 GROUP BY model ORDER BY request_count DESC`,
         Parameters:  []string{"start_time"},
     },
     {
         Name:        "latency_p95",
-        Description: "查询 P95 延迟",
+        Description: "鏌ヨ P95 寤惰繜",
         SQL:         `SELECT model, PERCENTILE_CONT(0.95) WITHIN GROUP(ORDER BY latency_ms) as p95_latency FROM request_logs WHERE created_at > $1 GROUP BY model`,
         Parameters:  []string{"start_time"},
     },
 }
 ```
 
-| 配置项 | 值 | 说明 |
+| 閰嶇疆椤?| 鍊?| 璇存槑 |
 |--------|-----|------|
-| connection | postgres | 数据库连接 |
-| max_rows | 100 | 最大返回行数 |
-| timeout | 30s | 查询超时 |
-| allowed_queries | [cost_by_model, cost_by_api_key, ...] | 白名单查询 |
+| connection | postgres | 鏁版嵁搴撹繛鎺?|
+| max_rows | 100 | 鏈€澶ц繑鍥炶鏁?|
+| timeout | 30s | 鏌ヨ瓒呮椂 |
+| allowed_queries | [cost_by_model, cost_by_api_key, ...] | 鐧藉悕鍗曟煡璇?|
 
-**安全限制**:
-- 仅支持预定义查询模板，禁止自由 SQL
-- 参数化查询，防止 SQL 注入
-- 限制返回行数，避免大数据量
+**瀹夊叏闄愬埗**:
+- 浠呮敮鎸侀瀹氫箟鏌ヨ妯℃澘锛岀姝㈣嚜鐢?SQL
+- 鍙傛暟鍖栨煡璇紝闃叉 SQL 娉ㄥ叆
+- 闄愬埗杩斿洖琛屾暟锛岄伩鍏嶅ぇ鏁版嵁閲?
 
-**调用示例**:
+**璋冪敤绀轰緥**:
 ```bash
-# Agent 推理过程
-Thought: 用户想知道上周 GPT-4 调用成本 Top3 的 API Key
+# Agent 鎺ㄧ悊杩囩▼
+Thought: 鐢ㄦ埛鎯崇煡閬撲笂鍛?GPT-4 璋冪敤鎴愭湰 Top3 鐨?API Key
 Action: db_query
 Action Input: {"template": "cost_by_api_key", "params": {"start_time": "2026-02-14", "limit": 3}}
 Observation: [{"name": "Production Key 1", "total_cost": 125.50}, {"name": "Dev Key 2", "total_cost": 89.30}, ...]
 ```
 
-#### 13.2.2.3 工具注册与发现
+#### 13.2.2.3 宸ュ叿娉ㄥ唽涓庡彂鐜?
 
 ```go
-// 工具注册表
+// 宸ュ叿娉ㄥ唽琛?
 type ToolRegistry struct {
     tools map[string]Tool
     mu    sync.RWMutex
@@ -1783,33 +1787,33 @@ type ToolRegistry struct {
 type Tool interface {
     Name() string
     Description() string
-    Schema() ToolSchema  // LLM 工具调用格式
+    Schema() ToolSchema  // LLM 宸ュ叿璋冪敤鏍煎紡
     Execute(ctx context.Context, input string) (string, error)
 }
 
-// 注册工具
+// 娉ㄥ唽宸ュ叿
 func RegisterTool(t Tool) {
     registry.Register(t)
 }
 
-// 获取可用工具列表
+// 鑾峰彇鍙敤宸ュ叿鍒楄〃
 func (r *ToolRegistry) ListTools() []ToolSchema {
-    // 返回所有工具的 JSON Schema
+    // 杩斿洖鎵€鏈夊伐鍏风殑 JSON Schema
 }
 ```
 
-**工具 Schema 示例 (LLM 使用)**:
+**宸ュ叿 Schema 绀轰緥 (LLM 浣跨敤)**:
 ```json
 {
   "type": "function",
   "function": {
     "name": "web_search",
-    "description": "搜索网络获取实时信息，适用于查询最新新闻、股价、天气等实时数据",
+    "description": "鎼滅储缃戠粶鑾峰彇瀹炴椂淇℃伅锛岄€傜敤浜庢煡璇㈡渶鏂版柊闂汇€佽偂浠枫€佸ぉ姘旂瓑瀹炴椂鏁版嵁",
     "parameters": {
       "type": "object",
       "properties": {
-        "query": {"type": "string", "description": "搜索关键词"},
-        "num": {"type": "integer", "description": "返回结果数量"}
+        "query": {"type": "string", "description": "鎼滅储鍏抽敭璇?},
+        "num": {"type": "integer", "description": "杩斿洖缁撴灉鏁伴噺"}
       },
       "required": ["query"]
     }
@@ -1817,63 +1821,63 @@ func (r *ToolRegistry) ListTools() []ToolSchema {
 }
 ```
 
-#### 13.2.3 自主决策
-- LLM 根据任务描述自主判断是否需要调用工具
-- 工具选择基于任务语义匹配
-- 支持工具链组合调用
+#### 13.2.3 鑷富鍐崇瓥
+- LLM 鏍规嵁浠诲姟鎻忚堪鑷富鍒ゆ柇鏄惁闇€瑕佽皟鐢ㄥ伐鍏?
+- 宸ュ叿閫夋嫨鍩轰簬浠诲姟璇箟鍖归厤
+- 鏀寔宸ュ叿閾剧粍鍚堣皟鐢?
 
-#### 13.2.4 边缘场景处理
+#### 13.2.4 杈圭紭鍦烘櫙澶勭悊
 
-| 场景 | 处理策略 | 配置 |
+| 鍦烘櫙 | 澶勭悊绛栫暐 | 閰嶇疆 |
 |------|---------|------|
-| **最大步数限制** | 超过则终止推理 | max_steps=10 |
-| **循环调用检测** | 同一工具连续调用3次自动终止 | max_consecutive=3 |
-| **工具超时** | 超过 30s 返回错误 | tool_timeout=30s |
-| **无有效工具** | 连续 2 次无工具调用则返回结果 | max_no_tool=2 |
+| **鏈€澶ф鏁伴檺鍒?* | 瓒呰繃鍒欑粓姝㈡帹鐞?| max_steps=10 |
+| **寰幆璋冪敤妫€娴?* | 鍚屼竴宸ュ叿杩炵画璋冪敤3娆¤嚜鍔ㄧ粓姝?| max_consecutive=3 |
+| **宸ュ叿瓒呮椂** | 瓒呰繃 30s 杩斿洖閿欒 | tool_timeout=30s |
+| **鏃犳湁鏁堝伐鍏?* | 杩炵画 2 娆℃棤宸ュ叿璋冪敤鍒欒繑鍥炵粨鏋?| max_no_tool=2 |
 
 ```go
-// Agent 边缘场景处理
+// Agent 杈圭紭鍦烘櫙澶勭悊
 type AgentConfig struct {
-    MaxSteps           int           // 最大推理步数 (默认 10)
-    MaxConsecutive     int           // 同一工具最大连续调用 (默认 3)
-    ToolTimeout        time.Duration // 工具超时 (默认 30s)
-    MaxNoToolCalls     int           // 无工具调用最大次数 (默认 2)
+    MaxSteps           int           // 鏈€澶ф帹鐞嗘鏁?(榛樿 10)
+    MaxConsecutive     int           // 鍚屼竴宸ュ叿鏈€澶ц繛缁皟鐢?(榛樿 3)
+    ToolTimeout        time.Duration // 宸ュ叿瓒呮椂 (榛樿 30s)
+    MaxNoToolCalls     int           // 鏃犲伐鍏疯皟鐢ㄦ渶澶ф鏁?(榛樿 2)
 }
 
-// 循环终止条件
+// 寰幆缁堟鏉′欢
 func shouldTerminate(steps []Step) bool {
     if len(steps) >= config.MaxSteps {
-        return true // 超过最大步数
+        return true // 瓒呰繃鏈€澶ф鏁?
     }
-    // 检测连续调用同一工具
+    // 妫€娴嬭繛缁皟鐢ㄥ悓涓€宸ュ叿
     if len(steps) >= 3 {
         last3 := steps[len(steps)-3:]
         if last3[0].Tool == last3[1].Tool &&
            last3[1].Tool == last3[2].Tool {
-            return true // 连续调用同一工具 3 次
+            return true // 杩炵画璋冪敤鍚屼竴宸ュ叿 3 娆?
         }
     }
     return false
 }
 ```
 
-### 13.3 Agent API 接口
+### 13.3 Agent API 鎺ュ彛
 
 ```
-POST /v1/agent/chat          # Agent 对话 (含推理过程)
-POST /v1/agent/execute       # 执行特定工具链
-GET  /v1/agent/tools         # 获取可用工具列表
-POST /v1/agent/tools/register # 注册新工具
+POST /v1/agent/chat          # Agent 瀵硅瘽 (鍚帹鐞嗚繃绋?
+POST /v1/agent/execute       # 鎵ц鐗瑰畾宸ュ叿閾?
+GET  /v1/agent/tools         # 鑾峰彇鍙敤宸ュ叿鍒楄〃
+POST /v1/agent/tools/register # 娉ㄥ唽鏂板伐鍏?
 ```
 
-### 13.4 Agent 配置
+### 13.4 Agent 閰嶇疆
 
 ```yaml
 agent:
   enabled: true
   default_reasoning: react  # react / cot / plan
-  max_steps: 10            # 最大推理步骤
-  timeout: 60s            # Agent 执行超时
+  max_steps: 10            # 鏈€澶ф帹鐞嗘楠?
+  timeout: 60s            # Agent 鎵ц瓒呮椂
   tools:
     - name: web_search
       enabled: true
@@ -1894,30 +1898,30 @@ agent:
 
 ---
 
-## 14. RAG 功能 (Retrieval-Augmented Generation)
+## 14. RAG 鍔熻兘 (Retrieval-Augmented Generation)
 
-> ⚡ **核心业务闭环**: 文档上传 → 向量化 → 向量检索 → 上下文增强 → LLM 生成
-> - 使用 Redis Stack 作为向量存储
-> - 支持多种文档格式
+> 鈿?**鏍稿績涓氬姟闂幆**: 鏂囨。涓婁紶 鈫?鍚戦噺鍖?鈫?鍚戦噺妫€绱?鈫?涓婁笅鏂囧寮?鈫?LLM 鐢熸垚
+> - 浣跨敤 Redis Stack 浣滀负鍚戦噺瀛樺偍
+> - 鏀寔澶氱鏂囨。鏍煎紡
 
-### 14.1 RAG 架构
+### 14.1 RAG 鏋舵瀯
 
 ```mermaid
 flowchart LR
-    subgraph Ingest["数据导入"]
-        Upload["文档上传"]
-        Parse["文档解析"]
-        Chunk["文本分块"]
-        Embed["向量生成"]
-        Store["向量存储"]
+    subgraph Ingest["鏁版嵁瀵煎叆"]
+        Upload["鏂囨。涓婁紶"]
+        Parse["鏂囨。瑙ｆ瀽"]
+        Chunk["鏂囨湰鍒嗗潡"]
+        Embed["鍚戦噺鐢熸垚"]
+        Store["鍚戦噺瀛樺偍"]
     end
 
-    subgraph Query["查询流程"]
-        UserQuery["用户问题"]
-        QueryEmbed["问题向量化"]
-        Search["向量检索"]
-        Context["上下文组装"]
-        LLM["LLM 生成"]
+    subgraph Query["鏌ヨ娴佺▼"]
+        UserQuery["鐢ㄦ埛闂"]
+        QueryEmbed["闂鍚戦噺鍖?]
+        Search["鍚戦噺妫€绱?]
+        Context["涓婁笅鏂囩粍瑁?]
+        LLM["LLM 鐢熸垚"]
     end
 
     Upload --> Parse
@@ -1932,58 +1936,58 @@ flowchart LR
     LLM --> Response
 ```
 
-### 14.2 RAG 核心组件
+### 14.2 RAG 鏍稿績缁勪欢
 
-#### 14.2.1 文档管理
-| 功能 | 描述 |
+#### 14.2.1 鏂囨。绠＄悊
+| 鍔熻兘 | 鎻忚堪 |
 |------|------|
-| 文档上传 | 支持 TXT、PDF、MD、DOCX 格式 |
-| 文档解析 | 提取文本内容，保留结构 |
-| 文本分块 | 滑动窗口 + 重叠策略 (chunk_size=512, overlap=50) |
-| 元数据 | 文档名称、来源、上传时间、标签 |
+| 鏂囨。涓婁紶 | 鏀寔 TXT銆丳DF銆丮D銆丏OCX 鏍煎紡 |
+| 鏂囨。瑙ｆ瀽 | 鎻愬彇鏂囨湰鍐呭锛屼繚鐣欑粨鏋?|
+| 鏂囨湰鍒嗗潡 | 婊戝姩绐楀彛 + 閲嶅彔绛栫暐 (chunk_size=512, overlap=50) |
+| 鍏冩暟鎹?| 鏂囨。鍚嶇О銆佹潵婧愩€佷笂浼犳椂闂淬€佹爣绛?|
 
-#### 14.2.2 向量存储 (Redis Vector)
-| 参数 | 值 | 说明 |
+#### 14.2.2 鍚戦噺瀛樺偍 (Redis Vector)
+| 鍙傛暟 | 鍊?| 璇存槑 |
 |------|-----|------|
-| Index Name | rag:documents | 索引名称 |
-| Vector Field | embedding | 向量字段 |
-| Dimensions | 1536 / 768 | 根据 embedding 模型 |
-| Distance | COSINE | 余弦相似度 |
-| Score Threshold | 0.7 | 最小相似度 |
+| Index Name | rag:documents | 绱㈠紩鍚嶇О |
+| Vector Field | embedding | 鍚戦噺瀛楁 |
+| Dimensions | 1536 / 768 | 鏍规嵁 embedding 妯″瀷 |
+| Distance | COSINE | 浣欏鸡鐩镐技搴?|
+| Score Threshold | 0.7 | 鏈€灏忕浉浼煎害 |
 
-#### 14.2.3 检索策略
-| 策略 | 描述 | 适用场景 |
+#### 14.2.3 妫€绱㈢瓥鐣?
+| 绛栫暐 | 鎻忚堪 | 閫傜敤鍦烘櫙 |
 |------|------|---------|
-| Similarity Search | 返回 top-k 最相似文档 | 精确匹配 |
-| MMR (Max Marginal Relevance) | 多样性重排，避免重复 | 广泛检索 |
-| Hybrid Search | 关键词 + 向量混合 | 复杂查询 |
+| Similarity Search | 杩斿洖 top-k 鏈€鐩镐技鏂囨。 | 绮剧‘鍖归厤 |
+| MMR (Max Marginal Relevance) | 澶氭牱鎬ч噸鎺掞紝閬垮厤閲嶅 | 骞挎硾妫€绱?|
+| Hybrid Search | 鍏抽敭璇?+ 鍚戦噺娣峰悎 | 澶嶆潅鏌ヨ |
 
-### 14.3 RAG API 接口
+### 14.3 RAG API 鎺ュ彛
 
 ```
-# 文档管理
-POST   /v1/rag/documents           # 上传文档
-GET    /v1/rag/documents            # 列表文档
-GET    /v1/rag/documents/:id        # 获取文档详情
-DELETE /v1/rag/documents/:id        # 删除文档
+# 鏂囨。绠＄悊
+POST   /v1/rag/documents           # 涓婁紶鏂囨。
+GET    /v1/rag/documents            # 鍒楄〃鏂囨。
+GET    /v1/rag/documents/:id        # 鑾峰彇鏂囨。璇︽儏
+DELETE /v1/rag/documents/:id        # 鍒犻櫎鏂囨。
 
-# 知识库管理
-POST   /v1/rag/knowledge-bases      # 创建知识库
-GET    /v1/rag/knowledge-bases      # 列表知识库
-DELETE /v1/rag/knowledge-bases/:id  # 删除知识库
+# 鐭ヨ瘑搴撶鐞?
+POST   /v1/rag/knowledge-bases      # 鍒涘缓鐭ヨ瘑搴?
+GET    /v1/rag/knowledge-bases      # 鍒楄〃鐭ヨ瘑搴?
+DELETE /v1/rag/knowledge-bases/:id  # 鍒犻櫎鐭ヨ瘑搴?
 
-# RAG 问答
-POST   /v1/rag/chat                # RAG 问答 (检索 + 生成)
-GET    /v1/rag/search              # 仅检索 (不生成)
+# RAG 闂瓟
+POST   /v1/rag/chat                # RAG 闂瓟 (妫€绱?+ 鐢熸垚)
+GET    /v1/rag/search              # 浠呮绱?(涓嶇敓鎴?
 ```
 
-### 14.4 RAG 配置
+### 14.4 RAG 閰嶇疆
 
 ```yaml
 rag:
   enabled: true
   embedding:
-    model: text-embedding-ada-002  # 或 text-embedding-3-small
+    model: text-embedding-ada-002  # 鎴?text-embedding-3-small
     dimensions: 1536
     batch_size: 100
 
@@ -2003,13 +2007,13 @@ rag:
     ttl: 30 days
 
   generation:
-    include_sources: true  # 返回引用来源
+    include_sources: true  # 杩斿洖寮曠敤鏉ユ簮
     max_context_tokens: 4000
 ```
 
-### 14.5 RAG + Agent 集成
+### 14.5 RAG + Agent 闆嗘垚
 
-> ⚡ **智能调度**: Agent 作为 RAG 的调度层，根据任务类型自动选择检索策略
+> 鈿?**鏅鸿兘璋冨害**: Agent 浣滀负 RAG 鐨勮皟搴﹀眰锛屾牴鎹换鍔＄被鍨嬭嚜鍔ㄩ€夋嫨妫€绱㈢瓥鐣?
 
 ```mermaid
 sequenceDiagram
@@ -2019,77 +2023,77 @@ sequenceDiagram
     participant RAG
     participant LLM
 
-    Client->>Agent: "基于上周财报分析股价走势"
-    Agent->>Agent: ReAct 推理
-    Agent->>RAG: 检索财报文档
-    RAG-->>Agent: 财务数据上下文
-    Agent->>LLM: 生成分析报告
-    LLM-->>Agent: 分析结果
-    Agent->>Agent: 检查是否需要更多数据
-    Agent->>Tools: 调用网络搜索验证
-    Tools-->>Agent: 最新股价信息
-    Agent->>LLM: 综合分析
-    LLM-->>Agent: 最终报告
-    Agent-->>Client: 完整分析
+    Client->>Agent: "鍩轰簬涓婂懆璐㈡姤鍒嗘瀽鑲′环璧板娍"
+    Agent->>Agent: ReAct 鎺ㄧ悊
+    Agent->>RAG: 妫€绱㈣储鎶ユ枃妗?
+    RAG-->>Agent: 璐㈠姟鏁版嵁涓婁笅鏂?
+    Agent->>LLM: 鐢熸垚鍒嗘瀽鎶ュ憡
+    LLM-->>Agent: 鍒嗘瀽缁撴灉
+    Agent->>Agent: 妫€鏌ユ槸鍚﹂渶瑕佹洿澶氭暟鎹?
+    Agent->>Tools: 璋冪敤缃戠粶鎼滅储楠岃瘉
+    Tools-->>Agent: 鏈€鏂拌偂浠蜂俊鎭?
+    Agent->>LLM: 缁煎悎鍒嗘瀽
+    LLM-->>Agent: 鏈€缁堟姤鍛?
+    Agent-->>Client: 瀹屾暣鍒嗘瀽
 ```
 
-### 14.6 边缘场景处理
+### 14.6 杈圭紭鍦烘櫙澶勭悊
 
-#### 14.6.1 大文档分块策略
+#### 14.6.1 澶ф枃妗ｅ垎鍧楃瓥鐣?
 
-| 场景 | 策略 | 参数 |
+| 鍦烘櫙 | 绛栫暐 | 鍙傛暟 |
 |------|------|------|
-| 普通文档 (< 50页) | 固定窗口滑动 | chunk_size=512, overlap=50 |
-| 大文档 (50-200页) | 按章节分块 + 窗口重叠 | 重叠增加到 100 |
-| 超大文档 (> 200页) | 层级分块: 章节 → 段落 | 两级检索 |
+| 鏅€氭枃妗?(< 50椤? | 鍥哄畾绐楀彛婊戝姩 | chunk_size=512, overlap=50 |
+| 澶ф枃妗?(50-200椤? | 鎸夌珷鑺傚垎鍧?+ 绐楀彛閲嶅彔 | 閲嶅彔澧炲姞鍒?100 |
+| 瓒呭ぇ鏂囨。 (> 200椤? | 灞傜骇鍒嗗潡: 绔犺妭 鈫?娈佃惤 | 涓ょ骇妫€绱?|
 
 ```go
-// 大文档分块策略
+// 澶ф枃妗ｅ垎鍧楃瓥鐣?
 func chunkLargeDocument(content string, pageCount int) []string {
     if pageCount > 200 {
-        // 超大文档: 层级分块
+        // 瓒呭ぇ鏂囨。: 灞傜骇鍒嗗潡
         return hierarchicalChunking(content)
     } else if pageCount > 50 {
-        // 大文档: 增加重叠
+        // 澶ф枃妗? 澧炲姞閲嶅彔
         return slidingWindowChunking(content, 512, 100)
     }
-    // 普通文档
+    // 鏅€氭枃妗?
     return slidingWindowChunking(content, 512, 50)
 }
 ```
 
-#### 14.6.2 低相似度处理
+#### 14.6.2 浣庣浉浼煎害澶勭悊
 
-| 场景 | 处理策略 |
+| 鍦烘櫙 | 澶勭悊绛栫暐 |
 |------|---------|
-| 最高相似度 < 0.5 | 返回空结果，提示"未找到相关内容" |
-| 0.5 ≤ 相似度 < 0.7 | 返回结果但标注"低置信度" |
-| 相似度 ≥ 0.7 | 正常返回 |
+| 鏈€楂樼浉浼煎害 < 0.5 | 杩斿洖绌虹粨鏋滐紝鎻愮ず"鏈壘鍒扮浉鍏冲唴瀹? |
+| 0.5 鈮?鐩镐技搴?< 0.7 | 杩斿洖缁撴灉浣嗘爣娉?浣庣疆淇″害" |
+| 鐩镐技搴?鈮?0.7 | 姝ｅ父杩斿洖 |
 
-#### 14.6.3 缓存优化策略
+#### 14.6.3 缂撳瓨浼樺寲绛栫暐
 
-| 场景 | 处理策略 |
+| 鍦烘櫙 | 澶勭悊绛栫暐 |
 |------|---------|
-| 大请求 (> 10k Token) | 跳过 L1 缓存，避免 Redis 内存占用 |
-| 超大请求 (> 50k Token) | 拒绝请求，返回错误 |
+| 澶ц姹?(> 10k Token) | 璺宠繃 L1 缂撳瓨锛岄伩鍏?Redis 鍐呭瓨鍗犵敤 |
+| 瓒呭ぇ璇锋眰 (> 50k Token) | 鎷掔粷璇锋眰锛岃繑鍥為敊璇?|
 
 ```go
-// 缓存跳过策略
+// 缂撳瓨璺宠繃绛栫暐
 func shouldSkipCache(tokens int) bool {
-    return tokens > 10000 // 大请求跳过 L1 缓存
+    return tokens > 10000 // 澶ц姹傝烦杩?L1 缂撳瓨
 }
 ```
 
 ---
 
-## 15. 技术扩展
+## 15. 鎶€鏈墿灞?
 
-### 15.1 Python Worker 扩展接口
+### 15.1 Python Worker 鎵╁睍鎺ュ彛
 
-> ⚡ **预留扩展**: Agent 复杂推理可委托 Python 处理
+> 鈿?**棰勭暀鎵╁睍**: Agent 澶嶆潅鎺ㄧ悊鍙鎵?Python 澶勭悊
 
 ```go
-// Go Agent 调用 Python Worker
+// Go Agent 璋冪敤 Python Worker
 type PythonAgentRequest struct {
     Task       string                 `json:"task"`
     Context    map[string]interface{} `json:"context"`
@@ -2104,10 +2108,10 @@ type PythonAgentResponse struct {
 }
 ```
 
-### 15.2 数据库表扩展 (RAG)
+### 15.2 鏁版嵁搴撹〃鎵╁睍 (RAG)
 
 ```sql
--- 知识库表
+-- 鐭ヨ瘑搴撹〃
 CREATE TABLE knowledge_bases (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
@@ -2117,7 +2121,7 @@ CREATE TABLE knowledge_bases (
     updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- 文档表
+-- 鏂囨。琛?
 CREATE TABLE rag_documents (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     kb_id UUID REFERENCES knowledge_bases(id),
@@ -2128,7 +2132,7 @@ CREATE TABLE rag_documents (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 文档 chunks 表 (可选，用于详细溯源)
+-- 鏂囨。 chunks 琛?(鍙€夛紝鐢ㄤ簬璇︾粏婧簮)
 CREATE TABLE document_chunks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     doc_id UUID REFERENCES rag_documents(id),
@@ -2138,72 +2142,73 @@ CREATE TABLE document_chunks (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- 索引
+-- 绱㈠紩
 CREATE INDEX idx_kb_id ON rag_documents(kb_id);
 CREATE INDEX idx_doc_id ON document_chunks(doc_id);
 ```
 
 ---
 
-## 16. 开发计划
+## 16. 寮€鍙戣鍒?
 
-### Week 17-18: RAG 基础功能
+### Week 17-18: RAG 鍩虹鍔熻兘
 
-- [ ] Task 6.1: 文档上传接口 (支持 TXT/MD)
-- [ ] Task 6.2: 文档解析与分块
-- [ ] Task 6.3: 向量生成调用
-- [ ] Task 6.4: Redis Vector 索引创建
-- [ ] Task 6.5: 知识库 CRUD
+- [ ] Task 6.1: 鏂囨。涓婁紶鎺ュ彛 (鏀寔 TXT/MD)
+- [ ] Task 6.2: 鏂囨。瑙ｆ瀽涓庡垎鍧?
+- [ ] Task 6.3: 鍚戦噺鐢熸垚璋冪敤
+- [ ] Task 6.4: Redis Vector 绱㈠紩鍒涘缓
+- [ ] Task 6.5: 鐭ヨ瘑搴?CRUD
 
-### Week 19-20: RAG 检索 + Agent 基础
+### Week 19-20: RAG 妫€绱?+ Agent 鍩虹
 
-- [ ] Task 6.6: 向量相似度检索
-- [ ] Task 6.7: RAG 问答接口 (检索 + 生成)
-- [ ] Task 6.8: Agent 框架 (Go 内置)
-- [ ] Task 6.9: ReAct 推理引擎
+- [ ] Task 6.6: 鍚戦噺鐩镐技搴︽绱?
+- [ ] Task 6.7: RAG 闂瓟鎺ュ彛 (妫€绱?+ 鐢熸垚)
+- [ ] Task 6.8: Agent 妗嗘灦 (Go 鍐呯疆)
+- [ ] Task 6.9: ReAct 鎺ㄧ悊寮曟搸
 
-### Week 21-22: Agent 工具集成
+### Week 21-22: Agent 宸ュ叿闆嗘垚
 
-- [ ] Task 6.10: 工具注册表
-- [ ] Task 6.11: 网络搜索工具
-- [ ] Task 6.12: 数据库查询工具
-- [ ] Task 6.13: API 调用工具
-- [ ] Task 6.14: Embedding 工具复用
+- [ ] Task 6.10: 宸ュ叿娉ㄥ唽琛?
+- [ ] Task 6.11: 缃戠粶鎼滅储宸ュ叿
+- [ ] Task 6.12: 鏁版嵁搴撴煡璇㈠伐鍏?
+- [ ] Task 6.13: API 璋冪敤宸ュ叿
+- [ ] Task 6.14: Embedding 宸ュ叿澶嶇敤
 
-### Week 23-24: 优化与测试
+### Week 23-24: 浼樺寲涓庢祴璇?
 
-- [ ] Task 6.15: Agent 自主决策优化
-- [ ] Task 6.16: RAG + Agent 集成测试
-- [ ] Task 6.17: 性能优化
-- [ ] Task 6.18: 文档完善
+- [ ] Task 6.15: Agent 鑷富鍐崇瓥浼樺寲
+- [ ] Task 6.16: RAG + Agent 闆嗘垚娴嬭瘯
+- [ ] Task 6.17: 鎬ц兘浼樺寲
+- [ ] Task 6.18: 鏂囨。瀹屽杽
 
 ---
 
-## 17. 附录
+## 17. 闄勫綍
 
-### 17.1 参考资料
+### 17.1 鍙傝€冭祫鏂?
 - [OpenAI API Docs](https://platform.openai.com/docs)
-- [Redis Stack向量搜索](https://redis.io/docs/stack/search/)
+- [Redis Stack鍚戦噺鎼滅储](https://redis.io/docs/stack/search/)
 - [TikToken](https://github.com/openai/tiktoken)
 - [Kubernetes Documentation](https://kubernetes.io/docs/)
-- [ReAct 论文](https://arxiv.org/abs/2210.03629)
-- [LangChain Go](https://github.com/tiktoken-org/tiktoken-go) - Agent 参考
+- [ReAct 璁烘枃](https://arxiv.org/abs/2210.03629)
+- [LangChain Go](https://github.com/tiktoken-org/tiktoken-go) - Agent 鍙傝€?
 
-### 17.2 术语表
-| 术语             | 解释                 |
+### 17.2 鏈琛?
+| 鏈             | 瑙ｉ噴                 |
 | ---------------- | -------------------- |
-| QPS              | 每秒查询数           |
-| P99              | 99% 分位延迟         |
-| Token            | LLM 输入/输出单位    |
-| Vector Embedding | 文本向量表示         |
-| 语义缓存         | 基于向量相似度的缓存 |
-| RAG              | 检索增强生成         |
-| Agent            | AI 智能代理          |
-| ReAct            | 推理+行动模式        |
-| CoT              | 思维链               |
+| QPS              | 姣忕鏌ヨ鏁?          |
+| P99              | 99% 鍒嗕綅寤惰繜         |
+| Token            | LLM 杈撳叆/杈撳嚭鍗曚綅    |
+| Vector Embedding | 鏂囨湰鍚戦噺琛ㄧず         |
+| 璇箟缂撳瓨         | 鍩轰簬鍚戦噺鐩镐技搴︾殑缂撳瓨 |
+| RAG              | 妫€绱㈠寮虹敓鎴?        |
+| Agent            | AI 鏅鸿兘浠ｇ悊          |
+| ReAct            | 鎺ㄧ悊+琛屽姩妯″紡        |
+| CoT              | 鎬濈淮閾?              |
 
 ---
 
-*文档版本: v1.4*
-*最后更新: 2026-02-21*
-*精简文档，删除安全性/成本优化/开发计划/验收标准*
+*鏂囨。鐗堟湰: v1.4*
+*鏈€鍚庢洿鏂? 2026-02-21*
+*绮剧畝鏂囨。锛屽垹闄ゅ畨鍏ㄦ€?鎴愭湰浼樺寲/寮€鍙戣鍒?楠屾敹鏍囧噯*
+

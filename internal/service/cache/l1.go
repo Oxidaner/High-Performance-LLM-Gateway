@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -13,18 +12,18 @@ import (
 
 // L1Cache implements exact prompt caching using Redis Hash
 type L1Cache struct {
-	client     *redis.Client
-	ttl        time.Duration
-	maxSize    int64
-	keyPrefix  string
+	client    *redis.Client
+	ttl       time.Duration
+	maxSize   int64
+	keyPrefix string
 }
 
 // L1CacheConfig holds L1 cache configuration
 type L1CacheConfig struct {
-	Enabled    bool
-	TTL        int // seconds
-	MaxSize    int64
-	KeyPrefix  string
+	Enabled   bool
+	TTL       int // seconds
+	MaxSize   int64
+	KeyPrefix string
 }
 
 // NewL1Cache creates a new L1 cache instance
@@ -39,9 +38,22 @@ func NewL1Cache(client *redis.Client, cfg L1CacheConfig) *L1Cache {
 
 // GenerateCacheKey generates a SHA256 hash key from request
 func GenerateCacheKey(model string, messages []Message, params map[string]interface{}) string {
-	// Include model, messages, and relevant params in the hash
-	data := fmt.Sprintf("%s:%v:%v", model, messages, params)
-	hash := sha256.Sum256([]byte(data))
+	payload := struct {
+		Model    string                 `json:"model"`
+		Messages []Message              `json:"messages"`
+		Params   map[string]interface{} `json:"params"`
+	}{
+		Model:    model,
+		Messages: messages,
+		Params:   params,
+	}
+
+	data, err := json.Marshal(payload)
+	if err != nil {
+		data = []byte(model)
+	}
+
+	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
 }
 
@@ -78,8 +90,13 @@ func (c *L1Cache) Set(ctx context.Context, key string, value []byte) error {
 	// Check cache size and evict if needed
 	c.evictIfNeeded(ctx)
 
-	// Set with TTL
-	return c.client.HSet(ctx, c.keyPrefix, key, string(value)).Err()
+	if err := c.client.HSet(ctx, c.keyPrefix, key, string(value)).Err(); err != nil {
+		return err
+	}
+	if c.ttl > 0 {
+		return c.client.Expire(ctx, c.keyPrefix, c.ttl).Err()
+	}
+	return nil
 }
 
 // Delete removes a key from cache
@@ -175,16 +192,16 @@ type ChatResponse struct {
 
 // Choice represents a completion choice
 type Choice struct {
-	Index        int         `json:"index"`
-	Message      Message     `json:"message"`
-	FinishReason string      `json:"finish_reason"`
+	Index        int     `json:"index"`
+	Message      Message `json:"message"`
+	FinishReason string  `json:"finish_reason"`
 }
 
 // Usage represents token usage
 type Usage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
-	TotalTokens     int `json:"total_tokens"`
+	TotalTokens      int `json:"total_tokens"`
 }
 
 // Marshal serializes response for caching

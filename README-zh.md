@@ -1,259 +1,180 @@
-# English | [中文版](./README-zh.md)
+﻿# [English](./README.md) | 中文
 
-# 高性能 LLM 网关
+# High-Performance LLM Gateway
 
-企业级大模型流量管理方案，支持多提供商、智能缓存、AI Agent 和 RAG 功能。
+一个使用 Go 构建的 OpenAI 兼容 LLM 网关。
 
-## 架构图
+项目定位是“推理网关 + Agent 基础设施层”，而不是完整 Agent 平台。
+
+## 项目定位
+
+本仓库当前适合：
+
+- 提供 OpenAI 兼容的聊天与向量接口
+- 统一接入多个上游模型提供商
+- 做 API Key 鉴权、限流、管理接口
+- 提供路由、缓存、追踪、workflow 可观测能力
+
+本仓库当前不包括：
+
+- 完整 Agent Runtime
+- 完整 RAG 产品面
+- 可直接替代 LiteLLM/Portkey 的生产级全量能力
+
+## 当前能力
+
+已实现：
+
+- `GET /health`
+- `POST /v1/chat/completions`
+- `POST /v1/embeddings`
+- `GET /v1/models`
+- `POST /api/v1/keys`
+- `GET /api/v1/keys`
+- `DELETE /api/v1/keys/:id`
+- `GET /api/v1/stats`
+- `GET /api/v1/workflows/:session_id/summary`
+- `GET /api/v1/workflows/summaries`
+- API Key 鉴权中间件
+- 全局 + 模型级限流
+- Chat L1 精确缓存
+- Chat L2 语义缓存（在线链路 `L1 -> L2 -> provider`）
+- Provider 抽象与 Registry
+- 加权路由 + fallback
+- 熔断器（provider/model 维度）
+- Embedding Worker 健康检查 + 重试
+- 请求日志（模型、延迟、状态、缓存命中）
+- PostgreSQL 持久化请求日志（带内存兜底）
+- Workflow 追踪模型与 JSONL replay 输出（`logs/workflow_replay.jsonl`）
+- 分阶段路由策略（`planning` / `execution` / `summarization`）
+- OpenTelemetry trace（HTTP + cache/provider/worker 子 span）
+- OTLP 导出支持（Docker 本地链路：`gateway -> otel-collector -> jaeger`）
+- Docker 本地集成环境（`deployments/docker`）
+- 基础压测脚本（`scripts/loadtest`）
+- 核心路径单元测试（鉴权、限流、缓存、路由、workflow）
+
+计划中但未完成：
+
+- 更精细的 workflow 成本计价模型
+- workflow summary 持久化流水线（当前为内存聚合）
+
+## 架构
 
 ```mermaid
 flowchart TB
-    subgraph Client["客户端"]
-        Req[用户请求]
-    end
+    Client[客户端]
+    Gateway[Go 网关]
+    Redis[(Redis)]
+    Postgres[(PostgreSQL)]
+    Providers[模型提供商]
+    Worker[Embedding Worker]
+    OTel[OTel Collector]
+    Jaeger[Jaeger]
 
-    subgraph Gateway["Go 网关 :8080"]
-        Auth[API Key 认证]
-        Rate[限流检查]
-        Cache[缓存路由]
-        Router[LLM 路由]
-        Agent[AI Agent<br/>ReAct/CoT]
-        RAG[RAG 引擎<br/>向量检索]
-    end
-
-    subgraph Redis["Redis Stack"]
-        L1[L1 精确缓存<br/>SHA256 Hash]
-        L2[L2 语义缓存<br/>向量相似度]
-        Vector[向量索引<br/>RAG 文档]
-    end
-
-    subgraph Worker["Python Worker :8081"]
-        Embed[Embedding<br/>sentence-transformers]
-    end
-
-    subgraph DB["PostgreSQL"]
-        Keys[API Keys<br/>持久化]
-        Docs[RAG 文档<br/>知识库]
-    end
-
-    subgraph LLM["LLM 提供商"]
-        OpenAI[OpenAI<br/>GPT-4/3.5]
-        Claude[Anthropic<br/>Claude]
-        MiniMax[MiniMax]
-    end
-
-    Req --> Auth
-    Auth -.->|验证 Key| Keys
-    Auth --> Rate
-    Rate --> Cache
-    Cache -->|L1 命中| L1
-    L1 -->|返回| Req
-    Cache -->|L1 未命中| L2
-    L2 -->|L2 命中| Embed
-    Embed -->|返回向量| L2
-    L2 -->|L2 未命中| Router
-    Router --> OpenAI
-    Router --> Claude
-    Router --> MiniMax
-
-    Agent --> RAG
-    Agent --> Embed
-    RAG --> Vector
-
-    style Gateway fill:#e3f2fd,stroke:#1976d2
-    style Redis fill:#e8f5e9,stroke:#388e3c
-    style Worker fill:#fff3e0,stroke:#f57c00
-    style LLM fill:#fce4ec,stroke:#c2185b
-    style DB fill:#f5f5f5,stroke:#666666
+    Client --> Gateway
+    Gateway --> Redis
+    Gateway --> Postgres
+    Gateway --> Providers
+    Gateway --> Worker
+    Gateway --> OTel --> Jaeger
 ```
 
-## 核心特性
+## Chat 请求链路
 
-- **多模型支持**: OpenAI, Anthropic (Claude), MiniMax
-- **分层缓存**:
-  - L1 精确缓存: Redis Hash (SHA256), <1ms 延迟
-  - L2 语义缓存: Redis Vector (Embedding 相似度 >0.95), 10-50ms 延迟
-- **Token 限流**: 令牌桶算法 + TikToken Go
-- **高性能**: 10,000+ QPS 吞吐量
-- **AI Agent**:
-  - ReAct/CoT 推理引擎
-  - 工具调用 (网络搜索、数据库查询、API 调用)
-  - 自主决策能力
-- **RAG**:
-  - 文档上传与处理
-  - Redis 向量存储
-  - 知识库管理
-- **智能重试**: 指数退避 + 可重试错误检测
-- **Prompt 优化**: 系统提示词缓存、历史消息压缩
-- **调用链观测**: OpenTelemetry / Jaeger 集成
-- **认证鉴权**: API Key 认证 + Redis 缓存
-- **管理后台**: Key 管理与使用统计
+1. 客户端调用 OpenAI 兼容接口。
+2. 网关执行 API Key 鉴权与限流。
+3. 先查 L1 缓存。
+4. L1 未命中后查 L2 语义缓存。
+5. L2 未命中后按路由/兜底/熔断策略转发上游。
+6. 记录日志与 trace，回写缓存并返回响应。
 
 ## 快速开始
 
-### 前置要求
+### 依赖
 
 - Go 1.21+
-- Redis (缓存)
-- PostgreSQL (持久化)
+- Redis
+- PostgreSQL
 
-### 本地运行
+### 运行
 
 ```bash
-# 克隆仓库
 git clone https://github.com/Oxidaner/High-Performance-LLM-Gateway.git
 cd High-Performance-LLM-Gateway
-
-# 复制配置文件
-cp configs/config.yaml configs/config.yaml
-# 编辑 config.yaml 填入你的 API keys
-
-# 运行服务
-go run cmd/server/main.go
+go run ./cmd/server
 ```
 
-### 配置
+运行前请按需修改 `configs/config.yaml`。
 
-编辑 `configs/config.yaml`:
-
-```yaml
-server:
-  host: 0.0.0.0
-  port: 8080
-  mode: debug
-
-logger:
-  level: info
-  format: console
-  output_path: stdout
-
-providers:
-  openai:
-    api_key: your-openai-key
-    base_url: https://api.openai.com/v1
-  anthropic:
-    api_key: your-anthropic-key
-```
-
-## API 接口
-
-### OpenAI 兼容接口
+## Docker 本地集成
 
 ```bash
-# 聊天完成
-curl -X POST http://localhost:8080/v1/chat/completions \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gpt-4",
-    "messages": [{"role": "user", "content": "你好!"}]
-  }'
-
-# 模型列表
-curl http://localhost:8080/v1/models
-
-# 向量嵌入
-curl -X POST http://localhost:8080/v1/embeddings \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "text-embedding-ada-002",
-    "input": "Hello world"
-  }'
+cd deployments/docker
+docker compose up -d --build
 ```
 
-### RAG 接口
+详情见 `deployments/docker/README.md`。
+
+## 基础压测
 
 ```bash
-# 上传文档
-curl -X POST http://localhost:8080/v1/rag/documents \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -F "file=@document.txt"
-
-# RAG 问答
-curl -X POST http://localhost:8080/v1/rag/chat \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "文档的主要内容是什么?"
-  }'
+go run ./scripts/loadtest -url http://localhost:8080/v1/chat/completions -api-key YOUR_API_KEY
 ```
 
-### Agent 接口
+PowerShell 包装脚本：
 
 ```bash
-# Agent 对话 (带推理)
-curl -X POST http://localhost:8080/v1/agent/chat \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "上周 GPT-4 的总调用成本是多少?"
-  }'
-
-# 列出可用工具
-curl http://localhost:8080/v1/agent/tools
+./scripts/loadtest/run.ps1 -ApiKey YOUR_API_KEY -Requests 500 -Concurrency 50
 ```
 
-### 管理后台接口
+## 当前支持模型
 
-```bash
-# 创建 API Key
-curl -X POST http://localhost:8080/api/v1/keys \
-  -H "Content-Type: application/json" \
-  -d '{"name": "my-key", "rate_limit": 1000}'
+由 `configs/config.yaml` 配置，并通过 `GET /v1/models` 暴露：
 
-# 列出 API Keys
-curl http://localhost:8080/api/v1/keys
+- `gpt-4`（provider: `openai`）
+- `gpt-3.5-turbo`（provider: `openai`）
+- `claude-3-haiku`（provider: `anthropic`）
 
-# 使用统计
-curl http://localhost:8080/api/v1/stats
+## Chat 请求约束
+
+`POST /v1/chat/completions` 当前校验：
+
+- 请求体必须是 JSON
+- `model` 必填
+- `messages` 不能为空
+- 每条 message 的 `role` 和 `content` 必填
+- `role` 仅支持：`system`、`user`、`assistant`、`tool`
+- `temperature` 范围 `[0, 2]`
+- `top_p` 范围 `[0, 1]`
+- `max_tokens` 必须 `>= 0`
+- `stop` 最多 4 条
+
+支持的 workflow 请求头：
+
+- `X-Workflow-Session`
+- `X-Workflow-Step`
+- `X-Workflow-Tool`
+- `X-Workflow-Phase`（`planning` / `execution` / `summarization`）
+- `X-Workflow-Trace-Id`
+
+## 目录结构
+
+```text
+cmd/server/                入口
+configs/                   配置
+deployments/               Docker / K8s 部署相关
+docs/                      文档与路线图
+internal/config/           配置加载
+internal/handler/          HTTP 处理器
+internal/middleware/       鉴权、日志、限流
+internal/service/cache/    L1/L2 缓存
+internal/service/provider/ provider 适配与 registry
+internal/service/workflow/ workflow 追踪与汇总
+internal/storage/          Redis / PostgreSQL 客户端
+pkg/errors/                API 错误封装
+scripts/loadtest/          压测脚本
 ```
 
-## 性能目标
-
-| 指标 | 目标 |
-|------|------|
-| QPS | 10,000+ |
-| P99 延迟 | < 500ms |
-| L1 缓存命中 | < 1ms |
-| L2 缓存命中 | 10-50ms |
-| 缓存命中率 | 80% |
-| LLM 成功率 | > 99.5% |
-
-## 项目结构
-
-```
-llm-gateway/
-├── cmd/server/           # 入口文件
-├── internal/
-│   ├── agent/          # AI Agent 模块
-│   │   ├── agent.go   # Agent 核心
-│   │   ├── react.go    # ReAct 推理
-│   │   ├── cot.go      # CoT 推理
-│   │   └── tools/      # 工具实现
-│   ├── rag/            # RAG 模块
-│   │   ├── document.go # 文档处理
-│   │   ├── chunker.go  # 文本分块
-│   │   └── retriever.go # 向量检索
-│   ├── config/         # 配置加载
-│   ├── handler/        # HTTP 处理器
-│   ├── middleware/     # 认证、限流
-│   ├── service/        # 路由、缓存、提供商
-│   └── storage/        # Redis、PostgreSQL 客户端
-├── configs/             # 配置文件
-├── docs/                # 文档
-└── go.mod
-```
-
-## 技术栈
-
-- **网关**: Go + Gin
-- **AI Worker**: Python + FastAPI + sentence-transformers
-- **缓存**: Redis Stack (向量搜索 + 缓存)
-- **数据库**: PostgreSQL
-- **观测**: OpenTelemetry + Jaeger
-- **部署**: Kubernetes
-
-## 许可证
+## License
 
 MIT

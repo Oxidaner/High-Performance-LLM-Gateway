@@ -19,6 +19,7 @@ type Config struct {
 	Cache        CacheConfig        `yaml:"cache"`
 	RateLimit    RateLimitConfig    `yaml:"ratelimit"`
 	Models       []ModelConfig      `yaml:"models"`
+	Workflow     WorkflowConfig     `yaml:"workflow"`
 	Monitoring   MonitoringConfig   `yaml:"monitoring"`
 }
 
@@ -50,8 +51,11 @@ type RedisConfig struct {
 }
 
 type PythonWorkerConfig struct {
-	Address string        `yaml:"address"`
-	Timeout time.Duration `yaml:"timeout"`
+	Address      string        `yaml:"address"`
+	Timeout      time.Duration `yaml:"timeout"`
+	RetryMax     int           `yaml:"retry_max"`
+	RetryBackoff time.Duration `yaml:"retry_backoff"`
+	HealthTTL    time.Duration `yaml:"health_ttl"`
 }
 
 type ProvidersConfig struct {
@@ -90,9 +94,15 @@ type ModelConfig struct {
 	IsActive   bool   `yaml:"is_active"`
 }
 
+type WorkflowConfig struct {
+	ReplayLogPath string            `yaml:"replay_log_path"`
+	RoutePolicies map[string]string `yaml:"route_policies"`
+}
+
 type MonitoringConfig struct {
 	Prometheus PrometheusConfig `yaml:"prometheus"`
 	Jaeger     JaegerConfig     `yaml:"jaeger"`
+	OTLP       OTLPConfig       `yaml:"otlp"`
 }
 
 type PrometheusConfig struct {
@@ -103,6 +113,12 @@ type PrometheusConfig struct {
 type JaegerConfig struct {
 	Enabled  bool   `yaml:"enabled"`
 	Endpoint string `yaml:"endpoint"`
+}
+
+type OTLPConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	Endpoint string `yaml:"endpoint"`
+	Insecure bool   `yaml:"insecure"`
 }
 
 // Load reads configuration from a YAML file
@@ -148,5 +164,10 @@ func (c *Config) applyEnvOverrides() {
 	// Python Worker
 	if v := os.Getenv("PYTHON_WORKER_URL"); v != "" {
 		c.PythonWorker.Address = v
+	}
+
+	// Workflow
+	if v := os.Getenv("WORKFLOW_REPLAY_LOG_PATH"); v != "" {
+		c.Workflow.ReplayLogPath = v
 	}
 }

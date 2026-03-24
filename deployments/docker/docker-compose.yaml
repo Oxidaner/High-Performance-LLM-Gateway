@@ -1,0 +1,95 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: llm-gateway-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: LLM_GateWay
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../../scripts/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d LLM_GateWay"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: llm-gateway-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.57
+    container_name: llm-gateway-jaeger
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+      - "4318:4318"
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.102.1
+    container_name: llm-gateway-otel-collector
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      jaeger:
+        condition: service_started
+
+  mock-openai:
+    image: python:3.12-slim
+    container_name: llm-gateway-mock-openai
+    working_dir: /app
+    command: ["python", "/app/deployments/docker/mocks/mock_openai.py"]
+    volumes:
+      - ../..:/app:ro
+    ports:
+      - "8090:8090"
+
+  mock-embedding-worker:
+    image: python:3.12-slim
+    container_name: llm-gateway-mock-embedding-worker
+    working_dir: /app
+    command: ["python", "/app/deployments/docker/mocks/mock_embedding_worker.py"]
+    volumes:
+      - ../..:/app:ro
+    ports:
+      - "8081:8081"
+
+  gateway:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: llm-gateway
+    command: ["/app/llm-gateway", "-mode=debug"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      mock-openai:
+        condition: service_started
+      mock-embedding-worker:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.docker.yaml:/app/configs/config.yaml:ro
+      - ../../logs:/app/logs
+
+volumes:
+  pgdata:

@@ -1,8 +1,12 @@
 package middleware
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,7 +17,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-// RateLimiter implements token bucket rate limiting (in-memory) 令牌桶速率限制器 (内存实现)
+// RateLimiter implements in-memory token bucket limiting.
 type RateLimiter struct {
 	tokens     float64
 	maxTokens  float64
@@ -22,7 +26,7 @@ type RateLimiter struct {
 	mu         sync.Mutex
 }
 
-// NewRateLimiter creates a new rate limiter
+// NewRateLimiter creates a new in-memory token bucket limiter.
 func NewRateLimiter(qps, burst int) *RateLimiter {
 	return &RateLimiter{
 		tokens:     float64(burst),
@@ -32,27 +36,27 @@ func NewRateLimiter(qps, burst int) *RateLimiter {
 	}
 }
 
-// Allow checks if a request is allowed 如果请求被允许，返回true，否则返回false
+// Allow checks if a request is allowed.
 func (r *RateLimiter) Allow() bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	now := time.Now()
-	elapsed := now.Sub(r.lastRefill).Seconds() // 自上次填充以来的时间间隔
-	r.tokens += elapsed * r.refillRate         // 令牌桶中的令牌数 = 上次填充以来的时间间隔 * 填充速率
+	elapsed := now.Sub(r.lastRefill).Seconds()
+	r.tokens += elapsed * r.refillRate
 	if r.tokens > r.maxTokens {
-		r.tokens = r.maxTokens // 令牌桶中的令牌数不能超过最大令牌数
+		r.tokens = r.maxTokens
 	}
-	r.lastRefill = now // 更新上次填充时间
+	r.lastRefill = now
 
-	if r.tokens >= 1 { // 如果令牌桶中的令牌数大于等于1
-		r.tokens-- // 消耗1个令牌
+	if r.tokens >= 1 {
+		r.tokens--
 		return true
 	}
 	return false
 }
 
-// RedisRateLimiter uses Redis for distributed rate limiting 基于Redis的速率限制器
+// RedisRateLimiter uses Redis for distributed rate limiting.
 type RedisRateLimiter struct {
 	client *redis.Client
 	key    string
@@ -60,7 +64,7 @@ type RedisRateLimiter struct {
 	window time.Duration
 }
 
-// NewRedisRateLimiter creates a Redis-based rate limiter
+// NewRedisRateLimiter creates a Redis-based rate limiter.
 func NewRedisRateLimiter(client *redis.Client, key string, limit int, window time.Duration) *RedisRateLimiter {
 	return &RedisRateLimiter{
 		client: client,
@@ -70,17 +74,15 @@ func NewRedisRateLimiter(client *redis.Client, key string, limit int, window tim
 	}
 }
 
-// Allow checks if request is allowed under rate limit 检查请求是否在速率限制内
+// Allow checks if request is allowed under rate limit.
 func (r *RedisRateLimiter) Allow() (bool, error) {
 	ctx := context.Background()
 
-	// Increment counter
 	count, err := r.client.Incr(ctx, r.key).Result()
 	if err != nil {
 		return false, err
 	}
 
-	// Set expiry on first request 第一次请求时设置过期时间
 	if count == 1 {
 		r.client.Expire(ctx, r.key, r.window)
 	}
@@ -88,29 +90,34 @@ func (r *RedisRateLimiter) Allow() (bool, error) {
 	return count <= int64(r.limit), nil
 }
 
-// RateLimit middleware with Redis support
+// RateLimit applies global and model-level token bucket limiting.
 func RateLimit(cfg config.RateLimitConfig) gin.HandlerFunc {
-	// In-memory rate limiter for global limit
-	globalLimiter := NewRateLimiter(cfg.GlobalQPS, cfg.Burst) // 全局速率限制器
+	globalLimiter := NewRateLimiter(cfg.GlobalQPS, cfg.Burst)
+	modelLimiters := make(map[string]*RateLimiter, len(cfg.ModelLimits))
+	for model, limit := range cfg.ModelLimits {
+		if limit <= 0 {
+			continue
+		}
+		modelLimiters[model] = NewRateLimiter(limit, limit)
+	}
 
 	return func(c *gin.Context) {
-		// Get model from request body
-		model := c.PostForm("model")
+		model := extractModelFromRequest(c)
 		if model == "" {
 			model = "default"
 		}
 
-		// Check model-specific limit
-		if limit, ok := cfg.ModelLimits[model]; ok { // 检查模型是否有特定的QPS限制
-			// Would use Redis for per-model limiting
-			_ = limit
+		if limiter, ok := modelLimiters[model]; ok && !limiter.Allow() {
+			err := errors.RateLimitExceeded("Rate limit exceeded for model " + model)
+			c.Header("Retry-After", strconv.Itoa(1))
+			err.JSON(c)
+			c.Abort()
+			return
 		}
 
-		// Check global limit
-		// 如果全局速率限制器不允许请求，则返回错误
 		if !globalLimiter.Allow() {
 			err := errors.RateLimitExceeded("Rate limit exceeded")
-			c.Header("Retry-After", strconv.Itoa(int(cfg.GlobalQPS)))
+			c.Header("Retry-After", strconv.Itoa(1))
 			err.JSON(c)
 			c.Abort()
 			return
@@ -118,4 +125,38 @@ func RateLimit(cfg config.RateLimitConfig) gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+func extractModelFromRequest(c *gin.Context) string {
+	if queryModel := strings.TrimSpace(c.Query("model")); queryModel != "" {
+		return queryModel
+	}
+
+	if formModel := strings.TrimSpace(c.PostForm("model")); formModel != "" {
+		return formModel
+	}
+
+	if c.Request == nil || c.Request.Body == nil {
+		return ""
+	}
+
+	contentType := strings.ToLower(c.GetHeader("Content-Type"))
+	if !strings.Contains(contentType, "application/json") {
+		return ""
+	}
+
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		return ""
+	}
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	var payload struct {
+		Model string `json:"model"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return ""
+	}
+
+	return strings.TrimSpace(payload.Model)
 }

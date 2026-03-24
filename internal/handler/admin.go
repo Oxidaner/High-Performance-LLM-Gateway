@@ -4,10 +4,13 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"llm-gateway/internal/config"
+	"llm-gateway/internal/middleware"
+	"llm-gateway/internal/service"
 	"llm-gateway/internal/storage"
 	"llm-gateway/pkg/errors"
 )
@@ -90,12 +93,58 @@ func DeleteAPIKey(pg *storage.PostgresClient, redisClient *storage.RedisClient) 
 // GetStats returns usage statistics
 func GetStats(pg *storage.PostgresClient) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Placeholder - would query actual stats from database
+		if pg != nil {
+			snapshot, err := pg.GetUsageSnapshot(c.Request.Context())
+			if err == nil {
+				c.JSON(http.StatusOK, snapshot)
+				return
+			}
+			middleware.Warn("failed to read stats from postgres, falling back to in-memory stats", middleware.Err(err))
+		}
+
+		snapshot := service.DefaultUsageStats().Snapshot()
+		c.JSON(http.StatusOK, snapshot)
+	}
+}
+
+// GetWorkflowSummary returns one workflow session summary from in-memory tracer.
+func GetWorkflowSummary() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sessionID := strings.TrimSpace(c.Param("session_id"))
+		if sessionID == "" {
+			errors.InvalidRequest("session_id is required").JSON(c)
+			return
+		}
+
+		summary, ok := service.DefaultWorkflowTracer().GetSummary(sessionID)
+		if !ok {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"message": "workflow session not found",
+					"type":    "invalid_request_error",
+					"code":    "invalid_request",
+				},
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, summary)
+	}
+}
+
+// ListWorkflowSummaries lists recent workflow summaries.
+func ListWorkflowSummaries() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		limit := 20
+		if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+			if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+				limit = parsed
+			}
+		}
+
 		c.JSON(http.StatusOK, gin.H{
-			"total_requests": 0,
-			"total_tokens":   0,
-			"total_cost":     0,
-			"cache_hit_rate": 0,
+			"object":    "list",
+			"summaries": service.DefaultWorkflowTracer().ListSummaries(limit),
 		})
 	}
 }

@@ -121,66 +121,99 @@ func Sync() {
 // Debug logs a debug message
 // 记录调试级别的日志消息
 func Debug(msg string, fields ...zap.Field) {
+	if Log == nil {
+		return
+	}
 	Log.Debug(msg, fields...)
 }
 
 // Info logs an info message
 // 记录信息级别的日志消息
 func Info(msg string, fields ...zap.Field) {
+	if Log == nil {
+		return
+	}
 	Log.Info(msg, fields...)
 }
 
 // Warn logs a warning message
 // 记录警告级别的日志消息
 func Warn(msg string, fields ...zap.Field) {
+	if Log == nil {
+		return
+	}
 	Log.Warn(msg, fields...)
 }
 
 // Error logs an error message
 // 记录错误级别的日志消息
 func Error(msg string, fields ...zap.Field) {
+	if Log == nil {
+		return
+	}
 	Log.Error(msg, fields...)
 }
 
 // DPanic logs a panic message if development mode is enabled, otherwise logs an error message
 // 记录开发模式下的恐慌级别的日志消息，否则记录错误级别的日志消息
 func DPanic(msg string, fields ...zap.Field) {
+	if Log == nil {
+		return
+	}
 	Log.DPanic(msg, fields...)
 }
 
 // Panic logs a panic message
 // 记录恐慌级别的日志消息
 func Panic(msg string, fields ...zap.Field) {
+	if Log == nil {
+		return
+	}
 	Log.Panic(msg, fields...)
 }
 
 // Fatal logs a fatal message and exits
 // 记录致命级别的日志消息，并退出程序
 func Fatal(msg string, fields ...zap.Field) {
+	if Log == nil {
+		return
+	}
 	Log.Fatal(msg, fields...)
 }
 
 // Debugf logs a formatted debug message
 // 记录格式化的调试级别的日志消息
 func Debugf(template string, args ...interface{}) {
+	if SugaredLog == nil {
+		return
+	}
 	SugaredLog.Debugf(template, args...)
 }
 
 // Infof logs a formatted info message
 // 记录格式化的信息级别的日志消息
 func Infof(template string, args ...interface{}) {
+	if SugaredLog == nil {
+		return
+	}
 	SugaredLog.Infof(template, args...)
 }
 
 // Warnf logs a formatted warning message
 // 记录格式化的警告级别的日志消息
 func Warnf(template string, args ...interface{}) {
+	if SugaredLog == nil {
+		return
+	}
 	SugaredLog.Warnf(template, args...)
 }
 
 // Errorf logs a formatted error message
 // 记录格式化的错误级别的日志消息
 func Errorf(template string, args ...interface{}) {
+	if SugaredLog == nil {
+		return
+	}
 	SugaredLog.Errorf(template, args...)
 }
 
